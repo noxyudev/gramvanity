@@ -1,24 +1,29 @@
-seedvanity
-Copyright (c) 2026 seedvanity contributors. Licensed under the MIT License (see LICENSE).
+gramvanity
+Copyright (c) 2026 gramvanity contributors. Licensed under the MIT License (see LICENSE).
 
 This project includes material from, or derived from, third-party work:
 
-1. macos/cpu_pbkdf2.c
-   The round structure of the SHA-512 compression function (dual rounds with the ARMv8.2
-   SHA512H / SHA512H2 / SHA512SU0 / SHA512SU1 instructions) follows the Go standard library file
-   src/crypto/internal/fips140/sha512/sha512block_arm64.s,
-   Copyright 2022 The Go Authors, BSD 3-Clause License (full text in third_party/LICENSE-go).
-   That file states it is based on the Linux kernel implementation originally written by
-   Ard Biesheuvel.
-
-2. opencl/third_party/monocypher/
+1. opencl/third_party/monocypher/
    Monocypher (https://monocypher.org), dual-licensed CC0 1.0 or 2-clause BSD,
    Copyright (c) 2017-2023 Loup Vaillant, Michael Savage, Fabio Scotoni
    (full text in opencl/third_party/monocypher/LICENCE.md).
 
-3. macos/english.txt, opencl/english.txt (and the wordlist in opencl/embedded.h)
+2. opencl/english.txt (and the wordlist in opencl/embedded.h)
    The BIP-0039 English wordlist (https://github.com/bitcoin/bips/blob/master/bip-0039/english.txt),
    verified by its SHA-256.
 
-4. macos/main.swift, opencl/seedvanity.c
+3. opencl/src/addresses.c
    The code-cell hash of the TON wallet contract v5r1 is taken from @ton/ton (MIT License).
+
+4. opencl/third_party/ed25519/
+   ed25519-donna (https://github.com/floodyberry/ed25519-donna), public domain by Andrew M.
+   (liquidsun@gmail.com), modified from the amd64-51-30k implementation by Daniel J. Bernstein,
+   Niels Duif, Tanja Lange, Peter Schwabe and Bo-Yin Yang (see
+   opencl/third_party/ed25519/README.md). Only the field and group arithmetic is used, for
+   Ed25519 public-key derivation: the independent CPU check of every hit and the fixed-base
+   table for the GPU kernel.
+
+5. opencl/ed25519_gpu.cl
+   The field arithmetic (radix 2^25.5, ten 32-bit limbs, multiplication and inversion chains)
+   and the twisted-Edwards addition formulas follow the public-domain ref10 implementation by
+   Daniel J. Bernstein, Niels Duif, Tanja Lange, Peter Schwabe and Bo-Yin Yang.
