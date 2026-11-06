@@ -339,8 +339,8 @@ On Windows use `..\verify-go\w5addr.exe`. Fund the address first (0.05–0.1 TON
 for `--check` to see the balance, then send. On testnet use `--net testnet` and get free GRAM from
 [https://t.me/testgiver_ton_bot](https://t.me/testgiver_ton_bot).
 
-Full details, including the exact message layout and import steps:
-[docs/tg-wallet.md](docs/tg-wallet.md).
+Full details, including the exact message layout, the import steps and the optional phrase
+rotation: [docs/tg-wallet.md](docs/tg-wallet.md).
 
 ## Stopping, resuming, and replaying
 

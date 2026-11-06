@@ -166,15 +166,34 @@ Notes:
 ## 5. Importing into Telegram Wallet
 
 1. Make sure the wallet was activated (section 4) and `--check` shows the signing key on chain.
-2. Open Telegram → **Wallet** → menu → **Settings** → **Import wallet** (the exact wording depends
-   on the Telegram version).
-3. Enter the 24 words and pick the right wallet version if asked. The wallet shows the address.
-4. Compare the address with the one printed by `gramvanity --reveal` / `--check`. They must match
-   character by character.
-5. Send a small test amount in and out before moving anything serious.
-6. Write the 24 words down on paper (not in Telegram's "saved messages"), then delete the job
+2. If this Telegram account already has a wallet, first move **all** of its funds to another
+   address you trust: the steps below replace the wallet's phrase.
+3. Open the wallet with the **Money** button in Telegram's side panel, tap **⋮** in the top corner
+   and choose **Keys & Backup**.
+4. Choose **Delete wallet**, then **Add existing**, and enter the 24 words the program found (the
+   exact button wording depends on the Telegram version).
+5. The wallet shows the address. Compare it with the one printed by `gramvanity --reveal` /
+   `--check`: they must match character by character.
+6. Send a small test amount in and out before moving anything serious.
+7. Write the 24 words down on paper (not in Telegram's "saved messages"), then delete the job
    folder (hit files, stop report and checkpoint): whoever has the checkpoint's search key can
    derive every candidate phrase of the job.
+
+### Optional: rotating the secret phrase later
+
+You never have to do this: gramvanity runs fully locally, and the phrase it found is an ordinary
+phrase that is safe to use as is. This is only for those who want a phrase not chosen by the
+program — Telegram Wallet can replace the phrase of an existing wallet itself:
+
+1. Open **⋮** → **Keys & Backup** again (step 3 above).
+2. Choose **Enable Backup**.
+3. Choose **Disable Backup** and make sure the **Update Secret Phrase** checkbox is ticked when
+   you confirm.
+4. Compare the old phrase with the new one: if the last 12 words differ, it worked. The address
+   does not change (the first 12 words stay the same), but the old signing half stops signing for
+   the wallet — from then on keep the new phrase safe instead of the old one.
+5. Never share the new secret phrase with anyone: Telegram generates it on the device and never
+   sends it anywhere.
 
 ## 6. Cost considerations
 

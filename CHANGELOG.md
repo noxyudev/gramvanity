@@ -6,6 +6,16 @@ All notable changes to gramvanity are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Documentation
+
+- The fork maintainer is now noxyu, and the project Telegram channel
+  ([t.me/gramvanity](https://t.me/gramvanity)) is linked in the READMEs.
+- The Telegram Wallet import guide follows the current wallet UI (Money → ⋮ → Keys & Backup →
+  Delete wallet → Add existing) and documents the optional built-in phrase rotation
+  (Enable Backup → Disable Backup with Update Secret Phrase).
+
 ## [1.0.0] - 2026-11-06
 
 First release of the fork. gramvanity started as

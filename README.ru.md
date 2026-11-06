@@ -350,8 +350,8 @@ Wallet примет фразу, кошелёк нужно создать и пе
 `--net testnet` и получите бесплатный GRAM у
 [https://t.me/testgiver_ton_bot](https://t.me/testgiver_ton_bot).
 
-Полные подробности, включая точную структуру сообщения и шаги импорта:
-[docs/tg-wallet.ru.md](docs/tg-wallet.ru.md).
+Полные подробности, включая точную структуру сообщения, шаги импорта и необязательную смену
+фразы: [docs/tg-wallet.ru.md](docs/tg-wallet.ru.md).
 
 ## Остановка, продолжение и повтор
 
