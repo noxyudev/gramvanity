@@ -20,11 +20,13 @@ seed-фразу, адрес которой заканчивается на вы�
 и My Wallet, `ton-24` для стандартной мнемоники TON. Руководство по Telegram Wallet:
 [docs/tg-wallet.ru.md](docs/tg-wallet.ru.md).
 
+Канал проекта: **[t.me/gramvanity](https://t.me/gramvanity)**.
+
 ## Откуда взялся проект
 
 - **Оригинальный проект:** [necrovolt/seedvanity](https://github.com/necrovolt/seedvanity), создан
   [miutalk](https://t.me/miutalk) и [Vibes 18+](https://t.me/vibes).
-- **Этот форк:** поддерживается **[Jenyok23](https://t.me/pauper)**.
+- **Этот форк:** поддерживается **[нокси](https://t.me/pauper)**.
 
 Форк сохраняет ту же идею и тот же поисковый движок и меняет то, что мешает реальному
 использованию:
@@ -457,7 +459,9 @@ legacy-цель с их исходным поведением «подходит
 Оригинальный проект и идея: [miutalk](https://t.me/miutalk) и [Vibes 18+](https://t.me/vibes) —
 [necrovolt/seedvanity](https://github.com/necrovolt/seedvanity).
 
-Этот форк поддерживает [Jenyok23](https://t.me/pauper).
+Этот форк поддерживается [нокси](https://t.me/pauper).
+
+Канал проекта: [t.me/gramvanity](https://t.me/gramvanity).
 
 ## Отказ от ответственности
 

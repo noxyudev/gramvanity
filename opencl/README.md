@@ -15,7 +15,7 @@ derivation) runs on the GPU; the checks run on the CPU.
 > **Where this came from:** the original project is
 > [necrovolt/seedvanity](https://github.com/necrovolt/seedvanity) by
 > [miutalk](https://t.me/miutalk) and [Vibes 18+](https://t.me/vibes). This fork is maintained by
-> [pauper](https://t.me/pauper): macOS support was removed (OpenCL only), and the fork adds several
+> [noxyu](https://t.me/pauper): macOS support was removed (OpenCL only), and the fork adds several
 > targets per run, one job folder per run, and checkpoint version 8.
 
 ## Status
@@ -228,4 +228,6 @@ locations.
 Original project: [necrovolt/seedvanity](https://github.com/necrovolt/seedvanity) by
 [miutalk](https://t.me/miutalk) and [Vibes 18+](https://t.me/vibes).
 
-This fork: [pauper](https://t.me/pauper).
+This fork: [noxyu](https://t.me/pauper).
+
+Project channel: [t.me/gramvanity](https://t.me/gramvanity).

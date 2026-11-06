@@ -15,7 +15,7 @@ TON и сохраняет фразы, адрес которых соответс
 > **Откуда это взялось:** оригинальный проект —
 > [necrovolt/seedvanity](https://github.com/necrovolt/seedvanity) от
 > [miutalk](https://t.me/miutalk) и [Vibes 18+](https://t.me/vibes). Этот форк поддерживает
-> [pauper](https://t.me/pauper): поддержка macOS удалена (только OpenCL), а форк добавляет
+> [нокси](https://t.me/pauper): поддержка macOS удалена (только OpenCL), а форк добавляет
 > несколько целей на запуск, одну папку задания на запуск и checkpoint версии 8.
 
 ## Состояние
@@ -239,4 +239,6 @@ BIP-0039. `third_party/monocypher/` — Monocypher (CC0 или BSD с 2 пунк
 Оригинальный проект: [necrovolt/seedvanity](https://github.com/necrovolt/seedvanity) от
 [miutalk](https://t.me/miutalk) и [Vibes 18+](https://t.me/vibes).
 
-Этот форк: [pauper](https://t.me/pauper).
+Этот форк: [нокси](https://t.me/pauper).
+
+Канал проекта: [t.me/gramvanity](https://t.me/gramvanity).

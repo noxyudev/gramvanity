@@ -18,11 +18,13 @@ phrase and need one online step (activation) before the wallet can be imported. 
 chosen with `--mode`: `bip39-12` or `bip39-24` for Tonkeeper and My Wallet, `ton-24` for the TON
 standard mnemonic. The Telegram Wallet guide: [docs/tg-wallet.md](docs/tg-wallet.md).
 
+Project channel: **[t.me/gramvanity](https://t.me/gramvanity)**.
+
 ## Where this came from
 
 - **Original project:** [necrovolt/seedvanity](https://github.com/necrovolt/seedvanity), created by
   [miutalk](https://t.me/miutalk) and [Vibes 18+](https://t.me/vibes).
-- **This fork:** maintained by **[Jenyok23](https://t.me/pauper)**.
+- **This fork:** maintained by **[noxyu](https://t.me/pauper)**.
 
 The fork keeps the same idea and the same search engine, and changes the parts that get in the way
 of real use:
@@ -442,7 +444,9 @@ Build instructions and internals: [opencl/README.md](opencl/README.md).
 Original project and idea: [miutalk](https://t.me/miutalk) and [Vibes 18+](https://t.me/vibes) —
 [necrovolt/seedvanity](https://github.com/necrovolt/seedvanity).
 
-This fork is maintained by [Jenyok23](https://t.me/pauper).
+This fork is maintained by [noxyu](https://t.me/pauper).
+
+Project channel: [t.me/gramvanity](https://t.me/gramvanity).
 
 ## Disclaimer
 
