@@ -1,12 +1,20 @@
-// seedvanity OpenCL kernels (OpenCL C 1.2): PBKDF2-HMAC-SHA512 and SLIP-10 ed25519 derivation.
-// Port of gpu/pbkdf2.metal. The host prepends sha512_consts.h (K512, IV512).
+// EN: gramvanity OpenCL kernels (OpenCL C 1.2): PBKDF2-HMAC-SHA512 and SLIP-10 ed25519 derivation.
+// EN: Port of gpu/pbkdf2.metal. The host prepends sha512_consts.h (K512, IV512).
+// RU: Ядра OpenCL gramvanity (OpenCL C 1.2): PBKDF2-HMAC-SHA512 и вывод SLIP-10 ed25519.
+// RU: Порт gpu/pbkdf2.metal. Хост дописывает сверху sha512_consts.h (K512, IV512).
 //
-// keys:  16 big-endian words per thread = HMAC key zero-padded to 128 bytes
-//        (longer keys are pre-hashed with SHA-512 on the host).
-// salt:  16 words = the whole second block of the first inner hash:
-//        salt || INT(1) || 0x80 || 0.. || bitlen(128 + saltLen + 4).
-// state: PBKDF2 state per thread, kept between dispatches so long derivations can be split into
-//        short kernels (Windows resets the GPU driver after ~2 s in one kernel).
+// EN: keys:  16 big-endian words per thread = HMAC key zero-padded to 128 bytes
+// EN:        (longer keys are pre-hashed with SHA-512 on the host).
+// EN: salt:  16 words = the whole second block of the first inner hash:
+// EN:        salt || INT(1) || 0x80 || 0.. || bitlen(128 + saltLen + 4).
+// EN: state: PBKDF2 state per thread, kept between dispatches so long derivations can be split into
+// EN:        short kernels (Windows resets the GPU driver after ~2 s in one kernel).
+// RU: keys:  16 big-endian слов на поток = ключ HMAC, дополненный нулями до 128 байт
+// RU:        (более длинные ключи хешируются SHA-512 на хосте).
+// RU: salt:  16 слов = весь второй блок первого внутреннего хеша:
+// RU:        salt || INT(1) || 0x80 || 0.. || bitlen(128 + saltLen + 4).
+// RU: state: состояние PBKDF2 на поток, сохраняемое между запусками, чтобы длинный вывод можно было
+// RU:        разбить на короткие ядра (Windows сбрасывает драйвер GPU после ~2 с в одном ядре).
 
 #define ROTR(x, n) rotate((x), (ulong)(64 - (n)))
 #define BS0(x) (ROTR(x, 28) ^ ROTR(x, 34) ^ ROTR(x, 39))
@@ -46,7 +54,8 @@
     RND(c, d, e, f, g, h, a, b, EXP((i) + 6), (i) + 6) \
     RND(b, c, d, e, f, g, h, a, EXP((i) + 7), (i) + 7)
 
-// st = SHA-512 compression of block w starting from state st. w is clobbered.
+// EN: st = SHA-512 compression of block w starting from state st. w is clobbered.
+// RU: st = сжатие SHA-512 блока w, начиная с состояния st. w затирается.
 void compress(ulong *st, ulong *w) {
     ulong a = st[0], b = st[1], c = st[2], d = st[3];
     ulong e = st[4], f = st[5], g = st[6], h = st[7];
@@ -56,14 +65,16 @@ void compress(ulong *st, ulong *w) {
     st[4] += e; st[5] += f; st[6] += g; st[7] += h;
 }
 
-// Padding words for a 64-byte message after a 128-byte key block: 0x80, zeros, bitlen 1536.
+// EN: Padding words for a 64-byte message after a 128-byte key block: 0x80, zeros, bitlen 1536.
+// RU: Слова дополнения для 64-байтного сообщения после 128-байтного блока ключа: 0x80, нули, bitlen 1536.
 void pad64(ulong *w) {
     w[8] = 0x8000000000000000UL;
     w[9] = 0; w[10] = 0; w[11] = 0; w[12] = 0; w[13] = 0; w[14] = 0;
     w[15] = (128 + 64) * 8;
 }
 
-// msg (8 words) = HMAC(key, msg) given the key's ipad/opad states.
+// EN: msg (8 words) = HMAC(key, msg) given the key's ipad/opad states.
+// RU: msg (8 слов) = HMAC(key, msg) по состояниям ipad/opad ключа.
 void hmac64(const ulong *ist, const ulong *ost, ulong *msg) {
     ulong w[16], s[8];
     for (int j = 0; j < 8; j++) { w[j] = msg[j]; s[j] = ist[j]; }
@@ -74,7 +85,8 @@ void hmac64(const ulong *ist, const ulong *ost, ulong *msg) {
     compress(msg, w);
 }
 
-// ipad / opad states of an HMAC key given as a 128-byte block (16 words)
+// EN: ipad / opad states of an HMAC key given as a 128-byte block (16 words)
+// RU: состояния ipad / opad ключа HMAC, заданного 128-байтным блоком (16 слов)
 void hmac_keys(const ulong *kb, ulong *ist, ulong *ost) {
     ulong w[16];
     for (int j = 0; j < 8; j++) { ist[j] = IV512[j]; ost[j] = IV512[j]; }
@@ -93,7 +105,7 @@ __kernel void pbkdf2_init(__global const ulong *keys, __constant ulong *salt,
     ulong kb[16], ist[8], ost[8], w[16], u[8];
     for (int j = 0; j < 16; j++) kb[j] = keys[gid * 16 + j];
     hmac_keys(kb, ist, ost);
-    // U1 = HMAC(key, salt || INT(1))
+    // EN: U1 = HMAC(key, salt || INT(1)) | RU: U1 = HMAC(key, salt || INT(1))
     for (int j = 0; j < 8; j++) u[j] = ist[j];
     for (int j = 0; j < 16; j++) w[j] = salt[j];
     compress(u, w);
@@ -122,29 +134,35 @@ __kernel void pbkdf2_iter(__global PState *st, uint iters, uint n) {
     for (int j = 0; j < 8; j++) { st[gid].u[j] = u[j]; st[gid].t[j] = t[j]; }
 }
 
-// SLIP-0010 ed25519, path m/44'/607'/0', from the 64-byte BIP39 seed in st[gid].t.
-// mkey: ipad/opad states of the constant key "ed25519 seed" (16 words, computed on the host).
-// out: 4 big-endian words per thread = the ed25519 private key seed.
+// EN: SLIP-0010 ed25519, path m/44'/607'/0', from the 64-byte BIP39 seed in st[gid].t.
+// EN: mkey: ipad/opad states of the constant key "ed25519 seed" (16 words, computed on the host).
+// EN: out: 4 big-endian words per thread = the ed25519 private key seed.
+// RU: SLIP-0010 ed25519, путь m/44'/607'/0', из 64-байтного seed BIP39 в st[gid].t.
+// RU: mkey: состояния ipad/opad постоянного ключа "ed25519 seed" (16 слов, считаются на хосте).
+// RU: out: 4 big-endian слова на поток = seed приватного ключа ed25519.
 __kernel void slip10(__global const PState *st, __constant ulong *mkey, __global ulong *out, uint n) {
     uint gid = get_global_id(0);
     if (gid >= n) return;
     ulong w[16], s[8], I[8];
-    // master: I = HMAC-SHA512("ed25519 seed", seed)
+    // EN: master: I = HMAC-SHA512("ed25519 seed", seed)
+    // RU: мастер: I = HMAC-SHA512("ed25519 seed", seed)
     for (int j = 0; j < 8; j++) { w[j] = st[gid].t[j]; s[j] = mkey[j]; }
     pad64(w);
     compress(s, w);
     for (int j = 0; j < 8; j++) { w[j] = s[j]; I[j] = mkey[8 + j]; }
     pad64(w);
     compress(I, w);
-    // hardened children: I = HMAC-SHA512(c, 0x00 || k || ser32(index | 2^31))
+    // EN: hardened children: I = HMAC-SHA512(c, 0x00 || k || ser32(index | 2^31))
+    // RU: hardened-потомки: I = HMAC-SHA512(c, 0x00 || k || ser32(index | 2^31))
     const uint path[3] = {44u, 607u, 0u};
     for (int level = 0; level < 3; level++) {
         ulong kb[16], ist[8], ost[8];
-        for (int j = 0; j < 4; j++) kb[j] = I[4 + j]; // chain code
+        for (int j = 0; j < 4; j++) kb[j] = I[4 + j]; // EN: chain code | RU: chain code
         for (int j = 4; j < 16; j++) kb[j] = 0;
         hmac_keys(kb, ist, ost);
         ulong idx = (ulong)(path[level] | 0x80000000u);
-        // 37-byte message: 0x00, k (32 bytes), index (4 bytes); then 0x80 and bitlen (128 + 37) * 8
+        // EN: 37-byte message: 0x00, k (32 bytes), index (4 bytes); then 0x80 and bitlen (128 + 37) * 8
+        // RU: 37-байтное сообщение: 0x00, k (32 байта), индекс (4 байта); затем 0x80 и bitlen (128 + 37) * 8
         w[0] = I[0] >> 8;
         w[1] = (I[0] << 56) | (I[1] >> 8);
         w[2] = (I[1] << 56) | (I[2] >> 8);

@@ -1,4 +1,5 @@
-// Minimal SHA-256 (FIPS 180-4). Checked by the self-test against known digests.
+// EN: Minimal SHA-256 (FIPS 180-4). Checked by the self-test against known digests.
+// RU: Минимальная реализация SHA-256 (FIPS 180-4). Self-test сверяет её с известными дайджестами.
 #include "sha256.h"
 #include <string.h>
 
