@@ -1,4 +1,4 @@
-module seedvanity
+module gramvanity
 
 go 1.26.0
 
