@@ -7,5 +7,6 @@ verify-go/w5addr
 verify-go/w5addr.exe
 # local agent config and project images: social preview only, never commit
 .zcodeignore
+.zcode/
 logo.png
 preview.png
