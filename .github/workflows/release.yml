@@ -1,0 +1,129 @@
+name: release
+
+# Builds the two programs a release needs (the search and the Go verifier/activator),
+# packages them with the repository layout the search expects, and attaches the archives
+# to a GitHub release. Trigger it by pushing a tag such as v1.2.0, or run it manually
+# (workflow_dispatch) to get the archives as workflow artifacts only.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+            exe: ""
+          - os: windows-latest
+            platform: windows-x64
+            exe: ".exe"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # ---------------------------------------------------------------- C search
+
+      - name: Install OpenCL headers (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ocl-icd-opencl-dev
+
+      - name: Build the search (Linux)
+        if: runner.os == 'Linux'
+        run: make -C opencl
+
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            make
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-opencl-headers
+            mingw-w64-ucrt-x86_64-opencl-icd
+
+      - name: Build the search (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: cd opencl && make
+
+      # ---------------------------------------------------------------- Go verifier
+
+      - name: Test and build the verifier
+        shell: bash
+        run: |
+          go vet ./verify-go
+          go test ./verify-go
+          mkdir -p dist/verify-go
+          go build -trimpath -ldflags "-s -w" \
+            -o "dist/verify-go/w5addr${{ matrix.exe }}" ./verify-go
+
+      # ---------------------------------------------------------------- package
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p dist/opencl dist/verify-go dist/docs
+          cp opencl/gramvanity dist/opencl/gramvanity
+          cp README.md CHANGELOG.md LICENSE NOTICE dist/
+          cp docs/tg-wallet.md dist/docs/
+          chmod +x dist/opencl/gramvanity dist/verify-go/w5addr
+          name="gramvanity-${{ github.ref_name }}-${{ matrix.platform }}"
+          tar -czf "$name.tar.gz" -C dist .
+          sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist/opencl | Out-Null
+          Copy-Item opencl/gramvanity.exe dist/opencl/gramvanity.exe
+          New-Item -ItemType Directory -Force dist/docs | Out-Null
+          Copy-Item README.md, CHANGELOG.md, LICENSE, NOTICE dist/
+          Copy-Item docs/tg-wallet.md dist/docs/
+          $name = "gramvanity-${{ github.ref_name }}-${{ matrix.platform }}"
+          Compress-Archive -Path dist/* -DestinationPath "$name.zip"
+          (Get-FileHash "$name.zip" -Algorithm SHA256).Hash.ToLower() + "  $name.zip" |
+            Set-Content "$name.zip.sha256" -Encoding ascii
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gramvanity-${{ matrix.platform }}
+          path: |
+            *.zip
+            *.tar.gz
+            *.sha256
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          body_path: CHANGELOG.md
+          files: release/*
+          generate_release_notes: true

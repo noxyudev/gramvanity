@@ -1,0 +1,76 @@
+name: ci
+
+# Build both programs and run the CPU-side test gate on every push and pull request. The GPU
+# integration suite (opencl/tests/test_det.sh) needs an OpenCL device and stays a local step;
+# everything here runs on the plain runners: the C build, the deterministic-search unit tests
+# (--selftest-det needs no GPU), the Go verifier tests and the English/Russian documentation
+# pair check.
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check bilingual documentation pairs
+        if: runner.os == 'Linux'
+        run: python3 tools/check_i18n.py
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # ---------------------------------------------------------------- C search
+
+      - name: Install OpenCL headers (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ocl-icd-opencl-dev
+
+      - name: Build the search (Linux)
+        if: runner.os == 'Linux'
+        run: make -C opencl
+
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            make
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-opencl-headers
+            mingw-w64-ucrt-x86_64-opencl-icd
+
+      - name: Build the search (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: cd opencl && make
+
+      - name: Deterministic-search unit tests (no GPU needed)
+        if: runner.os == 'Linux'
+        run: opencl/gramvanity --selftest-det
+
+      # ---------------------------------------------------------------- Go verifier
+
+      - name: Vet and test the verifier
+        shell: bash
+        run: |
+          go vet ./verify-go
+          go test -count=1 ./verify-go
