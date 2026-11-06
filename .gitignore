@@ -1,13 +1,11 @@
 # results contain seed phrases: never commit them
 results/
 # build outputs
-macos/seedvanity
-macos/bench
-macos/generated.swift
-macos/*.o
-opencl/seedvanity
-opencl/seedvanity.exe
-verify/node_modules/
+opencl/gramvanity
+opencl/gramvanity.exe
 verify-go/w5addr
 verify-go/w5addr.exe
-.DS_Store
+# local agent config and project images: social preview only, never commit
+.zcodeignore
+logo.png
+preview.png
