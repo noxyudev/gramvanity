@@ -8,6 +8,8 @@ versions follow [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-11-07
+
 ### Added
 
 - The release process guide (`docs/release-process.md` / `docs/release-process.ru.md`):
@@ -72,4 +74,5 @@ wallet derives on import. The global changes relative to the original project:
 - CI on GitHub Actions (Linux + Windows) and tag-driven releases with ready archives.
 - Bilingual documentation (English/Russian) and runtime localization `--lang en|ru`.
 
-[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/noxyudev/gramvanity/compare/v1.0.1...v1.0.2

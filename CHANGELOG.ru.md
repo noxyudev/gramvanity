@@ -8,6 +8,8 @@
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-11-07
+
 ### Добавлено
 
 - Руководство по процессу выпуска (`docs/release-process.md` / `docs/release-process.ru.md`):
@@ -74,4 +76,5 @@
 - CI на GitHub Actions (Linux + Windows) и релизы по тегу с готовыми архивами.
 - Двуязычная документация (английский/русский) и локализация `--lang en|ru`.
 
-[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/noxyudev/gramvanity/compare/v1.0.1...v1.0.2
