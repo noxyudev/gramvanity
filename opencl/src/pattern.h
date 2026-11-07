@@ -56,9 +56,6 @@ typedef struct {
     int pre_hits_cap, suf_hits_cap;
     int out_given;
     char out_dir[4096];               // EN: effective hit directory | RU: действующий каталог хитов
-    // EN: checkpoints v2-v4: old patterns were alternatives, not AND
-    // RU: checkpoint v2-v4: старые шаблоны были альтернативами, а не AND
-    int legacy_or;
     Pattern *pre, *suf;
     int n_pre, n_suf;
     int hits;                         // EN: hits saved for this target | RU: сохранённые хиты этой цели
@@ -113,11 +110,9 @@ void target_names_resolve(void);
 void targets_prepare(void);
 int pattern_matches(const Pattern *p, const char addr[49]);
 // EN: A normal target needs one matching prefix (if it has prefixes) AND one matching suffix (if it has
-// EN: suffixes). --match or applies the old checkpoint v2-v4 rule on purpose: one of the two groups
-// EN: suffices.
+// EN: suffixes). --match or relaxes this: one of the two groups suffices.
 // RU: Обычной цели нужен один подходящий префикс (если префиксы есть) И одно подходящее окончание
-// RU: (если окончания есть). --match or намеренно применяет старое правило checkpoint v2-v4:
-// RU: достаточно одной из двух групп.
+// RU: (если окончания есть). --match or смягчает это: достаточно одной из двух групп.
 int target_matches(const Target *t, const char addr[49]);
 // EN: Builds the all-targets matching tables from the compiled targets. Call after targets_prepare()
 // EN: or targets_from_checkpoint(), and again whenever the target set changes.

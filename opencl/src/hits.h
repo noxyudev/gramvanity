@@ -19,8 +19,8 @@ extern mutex_t finish_lock;
 // RU: Последний записанный stop-отчёт (для финального сообщения в консоли).
 extern char g_stop_path[4096];
 
-// EN: Human-readable effective pattern groups of one target for hit/stop files and --ckpt-info.
-// RU: Читаемые эффективные группы шаблонов цели для hit/stop-файлов и --ckpt-info.
+// EN: Human-readable effective pattern groups of one target for hit/stop files and --checkpoint-info.
+// RU: Читаемые эффективные группы шаблонов цели для hit/stop-файлов и --checkpoint-info.
 size_t target_desc(const Target *t, char *buf, size_t cap, size_t o);
 
 // EN: Final CPU part for one derived private key: wallet address and target check. pub is the

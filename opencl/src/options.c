@@ -81,7 +81,7 @@ void usage(int code) {
                "детерминированный возобновляемый поиск (по умолчанию):\n"
                "  --start-offset N  индекс первого кандидата (по умолчанию 0)\n"
                "  --tries N         обработать не более N кандидатов от start offset (диапазон индексов)\n"
-               "  --checkpoint FILE где хранить состояние поиска (по умолчанию <папка задания>/job.ckpt)\n"
+               "  --checkpoint FILE где хранить состояние поиска (по умолчанию <папка задания>/job.checkpoint)\n"
                "  --resume FILE     продолжить сохранённый поиск с последнего подтверждённого индекса;\n"
                "                    --tries расширяет диапазон\n"
                "  --checkpoint-interval SEC  период автосохранения, по умолчанию 30\n"
@@ -91,7 +91,9 @@ void usage(int code) {
                "                    --tries, --checkpoint, --resume и --stop-after\n"
                "  --derive KEYHEX INDEX    напечатать фразу кандидата по ключу поиска и индексу\n"
                "  --reveal CHECKPOINT INDEX  то же, с ключом из файла checkpoint\n"
-               "  --ckpt-info FILE  напечатать содержимое checkpoint (без секретного ключа)\n"
+               "  --checkpoint-info FILE  напечатать содержимое checkpoint (без секретного ключа)\n"
+               "  --checkpoint-fix FILE  проверить отредактированный вручную checkpoint (все поля, кроме\n"
+               "                    контрольной суммы) и перезаписать его с новой суммой\n"
                "  --selftest-det    запустить unit-тесты детерминированного поиска и выйти (GPU не нужен)\n"
                "  --device N     какой GPU OpenCL использовать (см. --list-devices), по умолчанию 0\n");
         exit(code);
@@ -138,7 +140,7 @@ void usage(int code) {
            "deterministic, resumable search (the default):\n"
            "  --start-offset N  first candidate index (default 0)\n"
            "  --tries N         process at most N candidates from the start offset (index range)\n"
-           "  --checkpoint FILE where to keep the search state (default <job folder>/job.ckpt)\n"
+           "  --checkpoint FILE where to keep the search state (default <job folder>/job.checkpoint)\n"
            "  --resume FILE     continue a saved search from its last confirmed index; --tries extends\n"
            "  --checkpoint-interval SEC  autosave period, default 30\n"
            "  --stop-after N    stop gracefully after N more candidates (state is saved)\n"
@@ -147,7 +149,9 @@ void usage(int code) {
            "                    --checkpoint, --resume and --stop-after\n"
            "  --derive KEYHEX INDEX    print the candidate phrase for a search key and index\n"
            "  --reveal CHECKPOINT INDEX  same, with the key from a checkpoint file\n"
-           "  --ckpt-info FILE  print the contents of a checkpoint (without the secret key)\n"
+           "  --checkpoint-info FILE  print the contents of a checkpoint (without the secret key)\n"
+           "  --checkpoint-fix FILE  validate a hand-edited checkpoint (every field, not the checksum)\n"
+           "                    and rewrite it with a fresh checksum\n"
            "  --selftest-det    run the deterministic-search unit tests and exit (no GPU needed)\n"
            "  --device N     OpenCL GPU to use (see --list-devices), default 0\n");
     exit(code);

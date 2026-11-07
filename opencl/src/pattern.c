@@ -412,7 +412,7 @@ static int group_matches(const Pattern *p, int n, const char addr[49]) {
 }
 
 int target_matches(const Target *t, const char addr[49]) {
-    if (t->legacy_or || t->match_or) {
+    if (t->match_or) {
         int any_pre = t->n_pre != 0 && group_matches(t->pre, t->n_pre, addr);
         int any_suf = t->n_suf != 0 && group_matches(t->suf, t->n_suf, addr);
         return any_pre || any_suf;
@@ -634,7 +634,7 @@ int targets_match_all(const char addr[49], uint8_t *matched) {
         const Target *t = &targets[ut[q]];
         int pre_hit = uf[q] & 1, suf_hit = uf[q] & 2;
         int m;
-        if (t->legacy_or || t->match_or)
+        if (t->match_or)
             m = (t->n_pre != 0 && pre_hit) || (t->n_suf != 0 && suf_hit);
         else
             m = (t->n_pre == 0 || pre_hit) && (t->n_suf == 0 || suf_hit);
@@ -675,7 +675,7 @@ double target_probability(const Target *t) {
     double p_pre = 0, p_suf = 0;
     for (int k = 0; k < t->n_pre; k++) p_pre += 1 / expected_pattern(&t->pre[k]);
     for (int k = 0; k < t->n_suf; k++) p_suf += 1 / expected_pattern(&t->suf[k]);
-    if (t->legacy_or || t->match_or) { // EN: one of the two groups suffices | RU: достаточно одной из двух групп
+    if (t->match_or) { // EN: one of the two groups suffices | RU: достаточно одной из двух групп
         if (t->n_pre && t->n_suf) return p_pre + p_suf - p_pre * p_suf;
         return p_pre + p_suf;
     }

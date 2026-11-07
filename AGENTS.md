@@ -48,7 +48,7 @@ Runtime localization rules:
   default; there is no locale auto-detection.
 - `verify-go/w5addr` stays English; it is a verifier/activator and its output is consumed by scripts.
 - Human-readable prose in hit, stop and report files follows the language of the run. Machine-readable
-  keys and tags (`HIT`, `target`, `index`, JSON keys), CLI flags, checkpoint magic, file names and
+  keys and tags (`HIT`, `target`, `index`, JSON keys), CLI flags, the checkpoint format line, file names and
   protocol strings stay English.
 - Source comments use explicit `EN:` / `RU:` blocks for substantive comments. Do not translate trivial
   line comments or identifiers.

@@ -6,6 +6,25 @@ All notable changes to gramvanity are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **BREAKING**: the checkpoint file is now a hand-editable UTF-8 text format
+  ("gramvanity-checkpoint" v1): one `key = value` per line, `[target]` sections, value
+  enumerations as trailing comments, and a trailing `checksum` line (SHA-256 over every other
+  line). The old binary format is fully removed: old `.ckpt` files do not load, and starting a
+  fresh job is required instead of a resume. Released 1.0.x binaries cannot read the new files.
+- New `--checkpoint-fix FILE` command: validates a hand-edited checkpoint (every field except the
+  checksum) and rewrites it with a fresh checksum; `--resume` refuses a file whose checksum no
+  longer matches. Typical edits: raise a target's `count`, change patterns, add or remove a
+  `[target]` block, reset the range (see the README's checkpoint section).
+- `--ckpt-info` is renamed to `--checkpoint-info` (same output); default checkpoint file name is
+  `job.checkpoint`.
+- Target flag bits are renumbered (global: bit0 bounceable, bit1 testnet; per-target: ignore-case,
+  count given, `--match or`, `--all-patterns`) and the dead `legacy_or` field is removed together
+  with the legacy checkpoint readers. No observable behavior change for new jobs.
+
 ## [1.0.2] - 2026-11-07
 
 ### Added
@@ -72,4 +91,5 @@ wallet derives on import. The global changes relative to the original project:
 - CI on GitHub Actions (Linux + Windows) and tag-driven releases with ready archives.
 - Bilingual documentation (English/Russian) and runtime localization `--lang en|ru`.
 
+[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.0.2...HEAD
 [1.0.2]: https://github.com/noxyudev/gramvanity/compare/v1.0.1...v1.0.2

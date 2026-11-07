@@ -154,12 +154,12 @@ uint64_t det_alloc(uint32_t want, uint32_t *got) {
 void det_commit_s1(uint64_t upto) {
     if (!det.enabled || opt.dump || opt.bench > 0) return;
     if (upto > det.s1_next) det.s1_next = upto;
-    if (now_sec() - det.last_save >= (double)opt.ckpt_interval) checkpoint_save();
+    if (now_sec() - det.last_save >= (double)opt.checkpoint_interval) checkpoint_save();
 }
 
 void det_commit(uint64_t upto) {
     if (!det.enabled || opt.dump || opt.bench > 0) return;
     if (upto > det.next) det.next = upto;
     if (opt.mode != TON24 && upto > det.s1_next) det.s1_next = upto;
-    if (now_sec() - det.last_save >= (double)opt.ckpt_interval) checkpoint_save();
+    if (now_sec() - det.last_save >= (double)opt.checkpoint_interval) checkpoint_save();
 }

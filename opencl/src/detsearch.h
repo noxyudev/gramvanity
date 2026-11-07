@@ -34,7 +34,7 @@ typedef struct {
     // EN: ton-24 after a crash: regenerate survivors of [base, end)
     // RU: ton-24 после сбоя: заново получить выживших из [base, end)
     uint64_t backfill_base, backfill_end;
-    char ckpt_path[4096];
+    char checkpoint_path[4096];
     double last_save; // EN: last successful checkpoint write | RU: время последней успешной записи checkpoint
 } DetSearch;
 

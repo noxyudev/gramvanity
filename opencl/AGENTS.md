@@ -25,7 +25,7 @@ English is the primary language. Russian copies and translations are kept alongs
 - `opencl/AGENTS.md` / `opencl/AGENTS.ru.md`.
 
 For source comments, use explicit `EN:` / `RU:` blocks for substantive comments; do not translate
-trivial line comments, identifiers, OpenCL code, CLI flags, JSON keys, checkpoint magic strings or
+trivial line comments, identifiers, OpenCL code, CLI flags, JSON keys, checkpoint format line or
 file names.
 
 User-facing strings of `gramvanity` are localized at run time with `--lang en|ru` and
@@ -150,13 +150,15 @@ python3 tools/check_i18n.py
   options, i18n, platform}`; cycles are forbidden. `i18n` is a leaf (`tr()`, `--lang`,
   `GRAMVANITY_LANG`), so any module may include it.
 - Shared state belongs to exactly one module and is exported through its header. Follow the lock
-  discipline: `hit_lock`, `stat_lock`, `ckpt_lock`, `finish_lock`; do not narrow critical sections
-  without the full `tests/test_det.sh` suite.
+  discipline: `hit_lock`, `stat_lock`, `checkpoint_lock`, `finish_lock`; do not narrow critical
+  sections without the full `tests/test_det.sh` suite.
 - `search` starts `../verify-go/w5addr[.exe]` and exchanges JSON lines
   (`{"words","mode","net"}` → `{uq,eq,pub,...}`). When changing the format, update both sides and the
   Go tests.
-- The checkpoint is a binary v8 format that still reads v2–v7. Any format change requires a version
-  bump, backward compatibility and round-trip/legacy coverage in `--selftest-det`.
+- The checkpoint is the text format "gramvanity-checkpoint" (one `key = value` per line, `[target]`
+  sections, a trailing SHA-256 `checksum` line; see `docs/architecture.md`). Any format change
+  requires a version bump and round-trip coverage in `--selftest-det`; the file stays hand-editable,
+  and `--checkpoint-fix` re-signs it after edits.
 - Hit and stop files and target names are part of the user-facing contract; do not change them
   without need. Human-readable prose follows the run language; keys, tags and identifiers stay
   English.

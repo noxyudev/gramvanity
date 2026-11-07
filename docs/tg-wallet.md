@@ -66,7 +66,7 @@ separate HMAC domain (`DETSIGN`), so the *exact* 24 words are reproducible later
 
 ```sh
 ./gramvanity --mode tg-wallet --suffix 'HELLO' --start-offset 0 --tries 100000000 --out ../results/tg-hello
-./gramvanity --reveal ../results/tg-hello/job.ckpt 1234567   # 24 words, both keys, address
+./gramvanity --reveal ../results/tg-hello/job.checkpoint 1234567   # 24 words, both keys, address
 ./gramvanity --mode tg-wallet --derive <key> 1234567         # same, from the key printed in the hit file
 ```
 
@@ -145,7 +145,7 @@ message:
 ```
 
 Default hit files do not contain the phrase; pipe it from `--reveal` instead:
-`./gramvanity --reveal ../results/tg-main/job.ckpt <index> | ../verify-go/w5addr activate --phrase - --send`.
+`./gramvanity --reveal ../results/tg-main/job.checkpoint <index> | ../verify-go/w5addr activate --phrase - --send`.
 
 On Windows use `..\verify-go\w5addr.exe`. `--phrase -` reads the phrase from stdin, which is handy
 for piping `--reveal` output without printing the words.
@@ -217,11 +217,11 @@ program — Telegram Wallet can replace the phrase of an existing wallet itself:
 # 2. mainnet, a large bounded range (deterministic and resumable by default)
 ./gramvanity --mode tg-wallet --suffix '[a-z_]HELLO' --start-offset 0 \
              --tries 100000000000 --out ../results/tg-main
-#    (Ctrl+C any time; the checkpoint is ../results/tg-main/job.ckpt; continue later with:)
-./gramvanity --resume ../results/tg-main/job.ckpt
+#    (Ctrl+C any time; the checkpoint is ../results/tg-main/job.checkpoint; continue later with:)
+./gramvanity --resume ../results/tg-main/job.checkpoint
 
 # 3. after a hit: recover the 24 words, activate, import
-./gramvanity --reveal ../results/tg-main/job.ckpt <index>  # or the --derive command from the hit file
+./gramvanity --reveal ../results/tg-main/job.checkpoint <index>  # or the --derive command from the hit file
 ../verify-go/w5addr activate --phrase "<24 words>" --check
 ../verify-go/w5addr activate --phrase "<24 words>" --send
 ```

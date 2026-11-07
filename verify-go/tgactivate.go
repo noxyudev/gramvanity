@@ -35,7 +35,7 @@
 //	--phrase "24 words"   the phrase from a gramvanity hit (words 1-12 + words 13-24)
 //	--phrase -            read the phrase from stdin
 //	--hit FILE            take the phrase from a gramvanity hit file (only --random hit files contain
-//	                      the phrase; default deterministic hits need: gramvanity --reveal CKPT IDX)
+//	                      the phrase; default deterministic hits need: gramvanity --reveal CHECKPOINT IDX)
 //	--net mainnet|testnet network (default mainnet; testnet addresses start with 0Q, spend only
 //	                      testnet GRAM from a faucet)
 //	--check               only report address state/balance/on-chain key, do not build anything
@@ -91,7 +91,7 @@ options:
   --phrase -             read the phrase from stdin
   --hit FILE             take the phrase from a --random hit file (default hit files
                          store the search key + index: recover the phrase first with
-                         gramvanity --reveal CKPT IDX)
+                         gramvanity --reveal CHECKPOINT IDX)
   --net mainnet|testnet  network (default mainnet; testnet needs a faucet)
   --check                only report address, state, balance and on-chain key
   --send                 send the message via toncenter (needs >= 0.02 GRAM)

@@ -33,8 +33,8 @@ of real use:
 - one run can search **several addresses at once**, each with its own patterns, limits and output
   folder;
 - every run keeps all of its files in **one job folder** (hits, stop report, checkpoint);
-- the checkpoint format was extended to store those targets; checkpoints from older versions still
-  load and continue normally;
+- the checkpoint is a hand-editable text file that stores those targets; open it in any editor and
+  re-sign it with `--checkpoint-fix` after edits;
 - hit files name every target they matched (`hit-A+B-<index>.txt`).
 
 ## Why not a mining wrapper?
@@ -287,7 +287,7 @@ job-20261028-101500/                       # inside results/
   hit-HELLO-123456.txt                     # one file per hit
   hit-MOON+SHORT-654321.txt                # an address that matched two targets
   stop-bip39-12-idx1234567-20261028-104500.txt
-  job.ckpt                                 # saved search state
+  job.checkpoint                           # saved search state (editable text)
 ```
 
 `--out DIR` before the first target chooses that folder yourself. Inside a target, `--out` changes
@@ -367,17 +367,17 @@ different phrases. To continue a job, use `--resume` with its checkpoint — a f
 ./gramvanity --mode bip39-12 --suffix '[a-z_]HELLO' --start-offset 1000000000 --tries 3000000
 
 # continue later (the stop file prints this exact command)
-./gramvanity --resume ../results/job-20261028-101500/job.ckpt
+./gramvanity --resume ../results/job-20261028-101500/job.checkpoint
 
 # after a hit the default count is full: ask for one more address and extend the range
-./gramvanity --resume job.ckpt --count 2 --tries 2000000
+./gramvanity --resume job.checkpoint --count 2 --tries 2000000
 
 # recover a hit without the phrase in the file
-./gramvanity --reveal job.ckpt 123456
+./gramvanity --reveal job.checkpoint 123456
 ./gramvanity --mode bip39-12 --derive <64-hex search key> 123456
 
 # inspect a checkpoint (the secret key is not printed)
-./gramvanity --ckpt-info job.ckpt
+./gramvanity --checkpoint-info job.checkpoint
 ```
 
 `--random` opts out: every candidate is fresh OS randomness, there is no search key, and nothing can
@@ -395,8 +395,23 @@ picks the checkpoint target by its id or its label (so `--target Паша` and `
 work); a block without a name picks the next unused target in order. Raising the count of a finished
 target continues from the current shared index, so already checked candidates are not repeated.
 
-Checkpoints are version 8. Files from versions 2–7 still load; 2–4 load as one legacy target with
-their original "any pattern matches" behaviour, so old jobs can be resumed.
+The checkpoint is a plain UTF-8 text file ("gramvanity-checkpoint" v1): one `key = value` per line,
+`[target]` sections, allowed values spelled out in trailing comments, and a trailing `checksum`
+line (SHA-256 over the rest of the file). Open it in any editor and it explains itself. Typical
+edits — raise a target's `count`, add or remove a `suffix`/`prefix` line (new patterns apply from
+the resume point onward), add or remove a whole `[target]` block, or reset `next` and the counters
+to re-scan a range. After editing, re-sign the file (it validates every field and recomputes the
+checksum); `--resume` refuses a file whose checksum no longer matches:
+
+```sh
+# raise t1's count by hand, then legalize the edit and continue
+./gramvanity --checkpoint-fix ../results/job-20261028-101500/job.checkpoint
+./gramvanity --resume ../results/job-20261028-101500/job.checkpoint
+```
+
+Do not edit the `key` line: the search key is what makes every index reproducible, and a changed
+key silently turns all further hits into unrecoverable ones. The `checksum` line is recomputed by
+`--checkpoint-fix`.
 
 ## Staying safe
 

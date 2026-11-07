@@ -19,8 +19,8 @@ typedef struct {
     int dump;
     // EN: deterministic search | RU: детерминированный поиск
     uint64_t start_offset, tries, stop_after, derive_index, reveal_index;
-    char ckpt[4096], resume[4096], derive_key[128], reveal_file[4096];
-    int ckpt_interval, start_given, tries_given, ckpt_info;
+    char checkpoint[4096], resume[4096], derive_key[128], reveal_file[4096];
+    int checkpoint_interval, start_given, tries_given, checkpoint_info, checkpoint_fix;
     int selftest_det;
     // EN: --random: fresh OS randomness for every candidate (not resumable)
     // RU: --random: свежая случайность ОС для каждого кандидата (не возобновляется)

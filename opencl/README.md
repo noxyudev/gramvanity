@@ -16,7 +16,7 @@ derivation) runs on the GPU; the checks run on the CPU.
 > [necrovolt/seedvanity](https://github.com/necrovolt/seedvanity) by
 > [miutalk](https://t.me/miutalk) and [Vibes 18+](https://t.me/vibes). This fork is maintained by
 > [noxyu](https://t.me/pauper): macOS support was removed (OpenCL only), and the fork adds several
-> targets per run, one job folder per run, and checkpoint version 8.
+> targets per run, one job folder per run, and a hand-editable text checkpoint format.
 
 ## Status
 
@@ -99,8 +99,9 @@ sh tests/test_det.sh          # end-to-end tests on the GPU: stop/resume/crash/h
 `--selftest-det` checks deterministic entropy and separation between modes (including the tg-wallet
 signing domain), BIP39 checksums of generated candidates in both tg-wallet halves, index/range
 bookkeeping (no gaps, no overrun, 2^64 overflow handling), checkpoint round-trips with target
-records plus rejection of corrupted and truncated files, legacy v2–v4 loading, target AND/OR
-matching, `--ignore-case`, name resolution, and Cyrillic/CP1251 labels.
+records plus rejection of corrupted, truncated and foreign binary files, hand-edit +
+`--checkpoint-fix` flows, quoting edge cases, target AND/OR matching, `--ignore-case`, name
+resolution, and Cyrillic/CP1251 labels.
 
 `tests/test_det.sh` adds GPU end-to-end scenarios: stop-after → resume → completion; verified hit →
 key+index → replay with `--derive`/`--reveal`; tg-wallet on mainnet and testnet; corrupted and
@@ -125,7 +126,7 @@ Every option in one place (the program explains each in `--help` output and the 
 --dump N FILE
 --start-offset N                  --tries N             --checkpoint FILE
 --resume FILE                     --checkpoint-interval SEC
---stop-after N                    --ckpt-info FILE
+--stop-after N                    --checkpoint-info FILE
 --random                          --derive KEYHEX INDEX
 --reveal CHECKPOINT INDEX         --selftest-det
 --help
@@ -189,19 +190,23 @@ are read back together with the private keys and used as-is. A hit is still re-d
 on the CPU (Monocypher HMAC-SHA512 PBKDF2 and SLIP-10, ed25519-donna Ed25519), must match the GPU
 result, and is then re-checked by the Go verifier.
 
-**Checkpoint format.** Binary, magic `SVANCKP`, version 8 (versions 2–7 still load). It stores the
-job folder, global flags, per-target ids/labels/patterns/counts/hits/output directories, cursors and
-the secret search key, protected by a SHA-256 integrity tag; it is written atomically (temp file,
-flush, rename), so a crash cannot leave a half-written file. Indices are processed strictly in order
+**Checkpoint format.** Plain UTF-8 text ("gramvanity-checkpoint" v1): one `key = value` per line,
+`[target]` sections, value enumerations as trailing comments, and a trailing `checksum` line —
+SHA-256 over every other line of the file (CR bytes are ignored), so corruption or a hand edit
+anywhere is caught. It stores the job folder, global flags, per-target ids/labels/patterns/counts/
+hits/output directories, cursors and the secret search key; it is written atomically (temp file,
+flush, rename), so a crash cannot leave a half-written file. The file is meant to be read and
+hand-edited in any editor: raise a `count`, change patterns, add or remove a `[target]` block —
+after editing run `gramvanity --checkpoint-fix FILE` to validate the fields and re-sign the file
+(`--resume` refuses a file whose checksum does not match). Optional lines have defaults, so a new
+`[target]` block can be as short as `name` plus one `suffix`. Unknown or duplicate keys are errors,
+so a typo can never silently change the search. Indices are processed strictly in order
 `[start, end)` and the saved position is the last **confirmed** index — everything below it has had
 its address checked — so a resumed run starts exactly there, with no gaps, repeating at most the
-work since the last autosave. All arithmetic is overflow-checked. Version 2–4 files have no target
-records and load as one target with their original "any pattern matches" behaviour. Flag layout:
-global bit 0 = bounceable (`EQ`), bit 1 = testnet; per-target bits: ignore-case, count limit, legacy
-OR matching, `--match or`, `--all-patterns` (with per-pattern saved-hit counters). In `tg-wallet`
-mode the signing half of a hit is derived from the same search key with its own domain tag, so
-`--derive`, `--reveal` and `--resume` always reproduce the exact 24 words. Keep checkpoints, hit and
-stop files secret: whoever holds the search key can derive every candidate phrase of the job.
+work since the last autosave. All arithmetic is overflow-checked. In `tg-wallet` mode the signing
+half of a hit is derived from the same search key with its own domain tag, so `--derive`, `--reveal`
+and `--resume` always reproduce the exact 24 words. Keep checkpoints, hit and stop files secret:
+whoever holds the search key can derive every candidate phrase of the job.
 
 **Startup self-test.** SHA-256 and the BIP39 PBKDF2 test vector on the CPU; GPU against CPU for
 PBKDF2 and SLIP-10 (keys longer than 128 bytes, forced chunk boundaries); GPU Ed25519 against the CPU

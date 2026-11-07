@@ -26,7 +26,7 @@ verify-go/w5addr(.exe)       Go: независимый верификатор (
 | detsearch     состояние детерминированного поиска (index -> энтропия) |
 | gpu           контекст OpenCL, конвейер Job, подбор chunk          |
 | stats         счётчики + hit_lock/stat_lock                       |
-| checkpoint    формат ckpt v8 (читает v2-v7), восстановление resume |
+| checkpoint    текстовый формат checkpoint, восстановление resume  |
 | hits          пересчёт, запуск верификатора, hit-файлы, stop-файл |
 | search        конвейеры BIP39/TON, учёт диапазонов                |
 | selftest      стартовые векторы + unit-тесты --selftest-det       |
@@ -63,10 +63,12 @@ detsearch, options}`, `hits -> {checkpoint, stats, pattern, crypto, addresses, g
 - **stats** — общие счётчики (`total_done`, `hits_found`, `verified`, ...) и две блокировки
   `hit_lock`/`stat_lock`. Модуль существует, чтобы разорвать цикл checkpoint/hits: сериализатор
   checkpoint читает счётчики под `stat_lock`, а обработке хитов нужен `checkpoint_save()`.
-- **checkpoint** — владеет версионированным бинарным форматом (v8, всё ещё читает v2-v7) и
-  восстановлением на стороне resume (`job_dir_from_checkpoint`, `resume_apply_target_overrides`,
-  `targets_from_checkpoint`). `le32p`/`le64p`/`ckpt_parse` экспортируются, потому что unit-тесты
-  строят и разбирают синтетические legacy-буферы.
+- **checkpoint** — владеет текстовым форматом checkpoint (по одному `ключ = значение` на строку,
+  секции `[target]`, последняя строка контрольной суммы SHA-256) и восстановлением на стороне resume
+  (`job_dir_from_checkpoint`, `resume_apply_target_overrides`, `targets_from_checkpoint`). Писатель
+  снимает живое состояние в переиспользуемое хранилище, поэтому записи остаются без выделений памяти
+  для обработчика консоли Windows; парсер строг (неизвестные и повторные ключи — ошибки), а
+  `checkpoint_fix()` пересчитывает подпись файла после ручной правки.
 - **hits** — один хит проходит через `handle_hit` ровно как раньше: фильтрация активных целей
   (`--all-patterns`), пересчёт на CPU, пропуск неоднозначных кошельков, необязательный внешний
   верификатор, запись hit-файла, обновление счётчиков — всё под `hit_lock`. Отчёт конца сессии
@@ -86,8 +88,8 @@ detsearch, options}`, `hits -> {checkpoint, stats, pattern, crypto, addresses, g
 - **i18n** — язык сообщений: `--lang en|ru` и `GRAMVANITY_LANG`, по умолчанию английский, без
   автоопределения локали. `tr("english", "русский")` выбирает вариант; в обоих вариантах должны
   совпадать спецификаторы формата printf. Машиночитаемый вывод (теги, ключи, JSON, имена файлов,
-  magic checkpoint, поток верификатора) остаётся английским независимо от языка, а `w5addr` вообще
-  не принимает `--lang`.
+  форматная строка checkpoint, поток верификатора) остаётся английским независимо от языка, а
+  `w5addr` вообще не принимает `--lang`.
 
 ## Владение общим состоянием
 
@@ -101,14 +103,14 @@ detsearch, options}`, `hits -> {checkpoint, stats, pattern, crypto, addresses, g
 | `gpu`, `chunk_iters`, `iter_cost`, `last_iter_time` | gpu.h | — (однопоточная настройка, поток цикла) |
 | счётчики, `hit_files[]`, `hit_lock`, `stat_lock` | stats.h | `stat_lock` |
 | `g_stop`, `g_finished` | platform.h | семантика обработчика сигналов |
-| `ckpt_lock`, буферы ckpt | checkpoint.h | `ckpt_lock` |
+| `checkpoint_lock`, буферы checkpoint | checkpoint.h | `checkpoint_lock` |
 | `finish_lock`, `g_stop_path` | hits.h | `finish_lock` |
 | `survivors[]`, `n_surv` | search.h | только главный цикл |
 | `g_lang` | i18n.h | — (задаётся один раз при старте, дальше только чтение) |
 
 Дисциплина блокировок (не изменилась с монолита, задокументирована здесь): `handle_hit` держит
 `hit_lock` всё своё тело и внутри берёт `stat_lock` для обновления счётчиков; `checkpoint_save`
-берёт `ckpt_lock` (и внутри `ckpt_serialize` — `stat_lock`); `save_all_and_report` берёт
+берёт `checkpoint_lock` (и внутри снимка состояния — `stat_lock`); `save_all_and_report` берёт
 `finish_lock` (и внутри `write_stop_file` — `stat_lock`). Ни одна блокировка никогда не держится
 во время вызовов GPU. Не сужайте эти критические секции без повторного запуска полного набора
 `tests/test_det.sh`.
@@ -124,12 +126,17 @@ out: {"uq","eq","pub","as","tonValid","bip39Valid"}          (w5)
      {"uq","eq","pub","as","signpub","bip39Valid","tonValid"} (tg)
 ```
 
-**Формат checkpoint v8** (little-endian, с контрольной суммой SHA-256): magic `"SVANCKP\0"`,
-версия, режим, глобальные флаги (bounceable/testnet), число целей, для каждой цели
-`{name, label(v8), out_dir, flags, count, hits, шаблоны суффикса + хиты по шаблонам (v7), шаблоны
-префикса + хиты по шаблонам (v7)}`, затем
-`{start, next, s1_next, end, done, unique_hits, verified}` и 32-байтовый ключ поиска (SECRET).
-Форматы 2-7 остаются читаемыми.
+**Формат checkpoint "gramvanity-checkpoint" v1** (обычный UTF-8-текст, по одному
+`ключ = значение` на строку, секции `[target]`, перечисления значений в комментариях в конце строк):
+глобальные скаляры (`format`, `version`, `mode`, `bounceable`, `net`, `job_dir`,
+`start`/`next`/`s1_next`/`end`, `done`/`unique_hits`/`verified`, `key`), затем для каждой цели
+`{name, label, out, count, hits, ignore_case, match, all_patterns, пары suffix/suffix_hits и
+prefix/prefix_hits}`. Последняя значащая строка — `checksum = <hex>`: SHA-256 над всеми остальными
+строками файла (CR-байты игнорируются), поэтому любое повреждение или ручная правка будут пойманы;
+`--checkpoint-fix` проверяет поля и пересчитывает подпись. Значения в кавычках (эскейпы
+`\\ \" \n \r \t \xNN`) сохраняют пробелы, кавычки, `#` и произвольные байты; неизвестные и
+повторные ключи — ошибки. Файл специально пригоден для правки руками: поднять `count`, поменять
+шаблоны, добавить или убрать блок `[target]` — затем `--checkpoint-fix` и `--resume`.
 
 **Детерминированный поиск:** энтропия кандидата =
 `HMAC-SHA512(searchKey, "svDET1" || mode || be64 index)`; подписывающая половина tg-wallet
@@ -163,7 +170,7 @@ out: {"uq","eq","pub","as","tonValid","bip39Valid"}          (w5)
 - `sh opencl/tests/test_det.sh` — набор сквозных проверок на GPU из 20 сценариев (113 проверок; он
   фиксирует `GRAMVANITY_LANG=en`, потому что проверки сравнивают английский вывод).
 - `python3 tools/check_i18n.py` — каждая пара `.md` существует и ссылается на перевод (CI).
-- Эталонные запуски: сценарии детерминированного диапазона дают одинаковый вывод `--ckpt-info` до
+- Эталонные запуски: сценарии детерминированного диапазона дают одинаковый вывод `--checkpoint-info` до
   и после рефакторинга (поля, зависящие от ключа, например счётчик «candidates done» у ton-24,
   меняются от запуска к запуску по замыслу, потому что каждый запуск берёт новый случайный ключ
   поиска).

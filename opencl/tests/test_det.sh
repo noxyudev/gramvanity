@@ -34,16 +34,16 @@ HAVE_GO=0
 [ -f ../verify-go/w5addr ] || [ -f ../verify-go/w5addr.exe ] && HAVE_GO=1
 if [ "$HAVE_GO" = 1 ]; then NOVERIFY=""; else NOVERIFY="--no-verify"; fi
 
-next_index()  { "$BIN" --ckpt-info "$1" | grep -o 'next index [0-9]*' | grep -o '[0-9]*'; }
-frontier()    { "$BIN" --ckpt-info "$1" | grep -o 'frontier [0-9]*'    | grep -o '[0-9]*'; }
-unique_hits() { "$BIN" --ckpt-info "$1" | grep -o 'unique hits [0-9]*'  | grep -o '[0-9]*'; }
-target_hits() { "$BIN" --ckpt-info "$1" | sed -n "s/^    $2: \([0-9][0-9]*\) hit(s).*/\1/p"; }
+next_index()  { "$BIN" --checkpoint-info "$1" | grep -o 'next index [0-9]*' | grep -o '[0-9]*'; }
+frontier()    { "$BIN" --checkpoint-info "$1" | grep -o 'frontier [0-9]*'    | grep -o '[0-9]*'; }
+unique_hits() { "$BIN" --checkpoint-info "$1" | grep -o 'unique hits [0-9]*'  | grep -o '[0-9]*'; }
+target_hits() { "$BIN" --checkpoint-info "$1" | sed -n "s/^    $2: \([0-9][0-9]*\) hit(s).*/\1/p"; }
 
 echo "== T0: unit tests =="
 if "$BIN" --selftest-det > "$TMP/unit.log" 2>&1; then ok "selftest-det"; else bad "selftest-det"; cat "$TMP/unit.log"; fi
 
 echo "== T1: stop-after, resume, range completion (bip39-12) =="
-CK="$TMP/t1.ckpt"; OUT="$TMP/t1-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t1.checkpoint"; OUT="$TMP/t1-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --suffix ZZZZZZ --start-offset 1000 --tries 100000 \
        --stop-after 30000 --checkpoint-interval 5 $NOVERIFY --checkpoint "$CK" --out "$OUT" > "$TMP/t1a.log" 2>&1
 N1=$(next_index "$CK")
@@ -51,10 +51,10 @@ if [ -n "$N1" ] && [ "$N1" -ge 31000 ] && [ "$N1" -le 60000 ]; then ok "stop-aft
 "$BIN" --resume "$CK" $NOVERIFY > "$TMP/t1b.log" 2>&1
 N2=$(next_index "$CK")
 check "resume completes the range" "$N2" "101000"
-if [ ! -f "$OUT/job.ckpt" ]; then ok "explicit --checkpoint does not create a second checkpoint in the job folder"; else bad "explicit --checkpoint does not create a second checkpoint in the job folder"; fi
+if [ ! -f "$OUT/job.checkpoint" ]; then ok "explicit --checkpoint does not create a second checkpoint in the job folder"; else bad "explicit --checkpoint does not create a second checkpoint in the job folder"; fi
 
 echo "== T2: verified hit, target name in the file, key+index output, replay (bip39-12) =="
-CK="$TMP/t2.ckpt"; OUT="$TMP/t2-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t2.checkpoint"; OUT="$TMP/t2-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --suffix '[0-9A-Za-z_-]' --start-offset 0 --tries 100000000 --count 1 $NOVERIFY \
        --checkpoint "$CK" --out "$OUT" > "$TMP/t2.log" 2>&1
 NEW=$(ls "$OUT" 2>/dev/null | grep '^hit-' | head -1)
@@ -80,17 +80,53 @@ if [ -n "$NEW" ]; then
 fi
 
 echo "== T3: corrupted / conflicting checkpoints =="
-CK="$TMP/t3.ckpt"; OUT="$TMP/t3-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t3.checkpoint"; OUT="$TMP/t3-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --suffix ZZZZZZ --start-offset 0 --tries 100000 --stop-after 40000 \
        --checkpoint-interval 5 --no-verify --checkpoint "$CK" --out "$OUT" > /dev/null 2>&1
-cp "$CK" "$TMP/t3bad.ckpt"
-printf 'x' | dd of="$TMP/t3bad.ckpt" bs=1 seek=100 conv=notrunc 2>/dev/null
-if "$BIN" --resume "$TMP/t3bad.ckpt" > "$TMP/t3.log" 2>&1; then bad "corrupted checkpoint rejected"; else ok "corrupted checkpoint rejected"; fi
+cp "$CK" "$TMP/t3bad.checkpoint"
+printf 'x' | dd of="$TMP/t3bad.checkpoint" bs=1 seek=100 conv=notrunc 2>/dev/null
+if "$BIN" --resume "$TMP/t3bad.checkpoint" > "$TMP/t3.log" 2>&1; then bad "corrupted checkpoint rejected"; else ok "corrupted checkpoint rejected"; fi
 if "$BIN" --resume "$CK" --suffix OTHER > "$TMP/t3c.log" 2>&1; then bad "global suffix conflict rejected"; else ok "global suffix conflict rejected"; fi
 if "$BIN" --resume "$CK" --target t1 --suffix OTHER > "$TMP/t3d.log" 2>&1; then bad "target suffix conflict rejected"; else ok "target suffix conflict rejected"; fi
 
+echo "== T3b: the text format: hand edits and --checkpoint-fix =="
+CK="$TMP/t3b.checkpoint"; OUT="$TMP/t3b-out"; rm -f "$CK"; rm -rf "$OUT"
+"$BIN" --mode bip39-12 --suffix ZZZZZZ --start-offset 0 --tries 100000 --stop-after 40000 \
+       --checkpoint-interval 5 --no-verify --checkpoint "$CK" --out "$OUT" > /dev/null 2>&1
+# EN: the file is plain text: the format line, the key and the checksum are visible fields
+# RU: файл — обычный текст: строка формата, ключ и контрольная сумма — видимые поля
+head -1 "$CK" | grep -q '^# gramvanity checkpoint v1' \
+    && ok "the checkpoint file starts with the text format header" || bad "the checkpoint file starts with the text format header"
+grep -q '^key           = [0-9a-f]\{64\}' "$CK" \
+    && ok "the search key is a visible hex field" || bad "the search key is a visible hex field"
+grep -q '^checksum      = [0-9a-f]\{64\}' "$CK" \
+    && ok "the checksum is a visible hex field" || bad "the checksum is a visible hex field"
+# EN: a hand edit (the count raised from 1 to 3) without --checkpoint-fix is rejected; with the fix
+# EN: it takes effect
+# RU: ручная правка (счётчик поднят с 1 до 3) без --checkpoint-fix отвергается; с fix она вступает в силу
+sed 's/^count .*/count         = 3/' "$CK" > "$TMP/t3b-edited.checkpoint"
+if "$BIN" --resume "$TMP/t3b-edited.checkpoint" --tries 10 > "$TMP/t3ba.log" 2>&1; then
+    bad "hand edit without --checkpoint-fix rejected"
+else
+    ok "hand edit without --checkpoint-fix rejected"
+fi
+"$BIN" --checkpoint-fix "$TMP/t3b-edited.checkpoint" > "$TMP/t3bb.log" 2>&1 \
+    && ok "--checkpoint-fix accepts the hand edit" || bad "--checkpoint-fix accepts the hand edit"
+"$BIN" --checkpoint-info "$TMP/t3b-edited.checkpoint" | grep -q 'count: 3' \
+    && ok "the edited count survives --checkpoint-fix" || bad "the edited count survives --checkpoint-fix"
+"$BIN" --resume "$TMP/t3b-edited.checkpoint" --tries 10 $NOVERIFY > "$TMP/t3bc.log" 2>&1 \
+    && ok "resume works after --checkpoint-fix" || bad "resume works after --checkpoint-fix"
+# EN: a binary file (any foreign format) is rejected as not a checkpoint
+# RU: бинарный файл (любой чужой формат) отвергается как не-checkpoint
+printf 'SVANCKP\0not-a-checkpoint-anymore' > "$TMP/t3bg.checkpoint"
+if "$BIN" --resume "$TMP/t3bg.checkpoint" > "$TMP/t3bd.log" 2>&1; then
+    bad "binary file rejected as foreign"
+else
+    ok "binary file rejected as foreign"
+fi
+
 echo "== T4: ton-24 deterministic range with interruption =="
-CK="$TMP/t4.ckpt"; OUT="$TMP/t4-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t4.checkpoint"; OUT="$TMP/t4-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode ton-24 --suffix ZZZZZZ --start-offset 500 --tries 60000 --stop-after 40000 \
        --checkpoint-interval 3 --no-verify --checkpoint "$CK" --out "$OUT" > "$TMP/t4a.log" 2>&1
 F1=$(frontier "$CK")
@@ -99,7 +135,7 @@ if [ -n "$F1" ] && [ "$F1" -ge 40000 ] && [ "$F1" -le 90000 ]; then ok "ton stop
 check "ton range completes after resume" "$(next_index "$CK")" "60500"
 
 echo "== T5: multiple suffix alternatives (OR inside a group) =="
-CK="$TMP/t5.ckpt"; OUT="$TMP/t5-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t5.checkpoint"; OUT="$TMP/t5-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --suffix 'ZZZZZ' --suffix '[0-9A-Za-z_-]' --start-offset 0 --tries 100000 \
        --count 1 $NOVERIFY --checkpoint "$CK" --out "$OUT" > "$TMP/t5.log" 2>&1
 NEW5=$(ls "$OUT" 2>/dev/null | grep '^hit-' | head -1)
@@ -109,11 +145,11 @@ case "$NEW5" in
 esac
 grep -q 'endings "ZZZZZ" "\[0-9A-Za-z_-\]" (one from each group; AND)' "$OUT/$NEW5" \
     && ok "hit file lists both suffix alternatives" || bad "hit file lists both suffix alternatives"
-"$BIN" --ckpt-info "$CK" | grep -q 'endings: "ZZZZZ" ([0-9]* hit(s)), "\[0-9A-Za-z_-\]" ([0-9]* hit(s))' \
+"$BIN" --checkpoint-info "$CK" | grep -q 'endings: "ZZZZZ" ([0-9]* hit(s)), "\[0-9A-Za-z_-\]" ([0-9]* hit(s))' \
     && ok "suffix alternatives survive the checkpoint" || bad "suffix alternatives survive the checkpoint"
 
 echo "== T5b: prefix patterns, ignore-case, checkpoint roundtrip =="
-CK="$TMP/t5b.ckpt"; OUT="$TMP/t5b-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t5b.checkpoint"; OUT="$TMP/t5b-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --prefix AB,CD --start-offset 0 --tries 2000000 --count 1 \
        $NOVERIFY --checkpoint "$CK" --out "$OUT" > "$TMP/t5b.log" 2>&1
 NEW5B=$(ls "$OUT" 2>/dev/null | grep '^hit-' | head -1)
@@ -128,9 +164,9 @@ if [ -n "$NEW5B" ]; then
 else
     bad "prefix hit file"
 fi
-"$BIN" --ckpt-info "$CK" | grep -q 'prefixes: "AB" ([0-9]* hit(s)), "CD" ([0-9]* hit(s))' && ok "prefixes survive the checkpoint" || bad "prefixes survive the checkpoint"
+"$BIN" --checkpoint-info "$CK" | grep -q 'prefixes: "AB" ([0-9]* hit(s)), "CD" ([0-9]* hit(s))' && ok "prefixes survive the checkpoint" || bad "prefixes survive the checkpoint"
 if "$BIN" --resume "$CK" --prefix EF > "$TMP/t5bc.log" 2>&1; then bad "prefix conflict rejected"; else ok "prefix conflict rejected"; fi
-CK="$TMP/t5c.ckpt"; OUT="$TMP/t5c-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t5c.checkpoint"; OUT="$TMP/t5c-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --prefix ab --ignore-case --start-offset 0 --tries 2000000 --count 1 \
        $NOVERIFY --checkpoint "$CK" --out "$OUT" > "$TMP/t5c.log" 2>&1
 NEW5C=$(ls "$OUT" 2>/dev/null | grep '^hit-' | head -1)
@@ -145,7 +181,7 @@ else
 fi
 
 echo "== T5f: --match or: either group alone is a hit; conflict and override =="
-CK="$TMP/t5f.ckpt"; OUT="$TMP/t5f-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t5f.checkpoint"; OUT="$TMP/t5f-out"; rm -f "$CK"; rm -rf "$OUT"
 # EN: AND would need AB...ZZZZZZZ (~2^50): any hit in 2M tries proves the prefix alone matched
 # RU: AND потребовал бы AB...ZZZZZZZ (~2^50): любой хит за 2M попыток доказывает, что совпал префикс
 "$BIN" --mode bip39-12 --match or --start-offset 0 --tries 2000000 --count 1 $NOVERIFY \
@@ -162,14 +198,14 @@ if [ -n "$NEW5F" ]; then
 else
     bad "--match or hit file"
 fi
-"$BIN" --ckpt-info "$CK" | grep -q 'prefix OR suffix (--match or)' \
+"$BIN" --checkpoint-info "$CK" | grep -q 'prefix OR suffix (--match or)' \
     && ok "--match or survives the checkpoint" || bad "--match or survives the checkpoint"
 if "$BIN" --resume "$CK" --match and --tries 10 > "$TMP/t5fc.log" 2>&1; then bad "--match conflict rejected"; else ok "--match conflict rejected"; fi
 "$BIN" --resume "$CK" --tries 10 --count 2 $NOVERIFY > "$TMP/t5fr.log" 2>&1 \
     && ok "resume keeps the saved --match or" || bad "resume keeps the saved --match or"
 # EN: a per-target --match overrides the global default: A stays or, B is and
 # RU: --match внутри цели переопределяет глобальное значение: у A остаётся or, у B — and
-CK="$TMP/t5g.ckpt"; OUT="$TMP/t5g-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t5g.checkpoint"; OUT="$TMP/t5g-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --match or --start-offset 0 --tries 200000 --out "$OUT" --checkpoint "$CK" --no-verify \
        --target A --prefix AB --suffix 'ZZZZZZZ' \
        --target B --match and --suffix 'ZZ' > "$TMP/t5g.log" 2>&1
@@ -179,10 +215,10 @@ grep -q '(one group suffices; OR)' "$OUT"/hit-A-* \
     && ok "target A keeps the global --match or" || bad "target A keeps the global --match or"
 grep -q '(one from each group; AND)' "$OUT"/hit-B-* \
     && ok "target B overrides with --match and" || bad "target B overrides with --match and"
-check "only target A carries the OR flag" "$("$BIN" --ckpt-info "$CK" | grep -c 'prefix OR suffix (--match or)')" "1"
+check "only target A carries the OR flag" "$("$BIN" --checkpoint-info "$CK" | grep -c 'prefix OR suffix (--match or)')" "1"
 
 echo "== T5g2: Cyrillic target names are transliterated and kept as labels =="
-CK="$TMP/t5i.ckpt"; OUT="$TMP/t5i-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t5i.checkpoint"; OUT="$TMP/t5i-out"; rm -f "$CK"; rm -rf "$OUT"
 CYR=$(printf '\320\237\320\260\321\210\320\260') # Паша
 "$BIN" --mode bip39-12 --start-offset 0 --tries 200000 --count 1 $NOVERIFY \
        --checkpoint "$CK" --out "$OUT" --target "$CYR" --prefix AB > "$TMP/t5i.log" 2>&1
@@ -192,7 +228,7 @@ if [ -n "$H5I" ] && grep -q "target Pasha ($CYR)" "$OUT/$H5I"; then
 else
     bad "Cyrillic name becomes the ASCII id Pasha and stays as its label"
 fi
-"$BIN" --ckpt-info "$CK" | grep -q "label: $CYR" \
+"$BIN" --checkpoint-info "$CK" | grep -q "label: $CYR" \
     && ok "Cyrillic label survives the checkpoint" || bad "Cyrillic label survives the checkpoint"
 # EN: resume by the Cyrillic label (raise the count so the run actually starts)
 # RU: продолжаем по кириллической метке (поднимаем счётчик, чтобы запуск действительно начался)
@@ -201,16 +237,16 @@ OUT5I="$TMP/t5i-out2"; rm -rf "$OUT5I"
     && ok "resume finds a target by its Cyrillic label" || bad "resume finds a target by its Cyrillic label"
 
 echo "== T5h: --all-patterns: --count applies per pattern variant =="
-CK="$TMP/t5h.ckpt"; OUT="$TMP/t5h-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t5h.checkpoint"; OUT="$TMP/t5h-out"; rm -f "$CK"; rm -rf "$OUT"
 # EN: two disjoint, easily findable prefix variants: the run must not stop after the first one
 # RU: два непересекающихся легко находимых варианта префикса: запуск не должен останавливаться на первом
 "$BIN" --mode bip39-12 --all-patterns --start-offset 0 --tries 2000000 --count 1 $NOVERIFY \
        --checkpoint "$CK" --out "$OUT" --prefix AB --prefix CD > "$TMP/t5h.log" 2>&1
 NH5H=$(ls "$OUT" 2>/dev/null | grep -c '^hit-')
 check "--all-patterns keeps searching until every variant has its hit" "$NH5H" "2"
-"$BIN" --ckpt-info "$CK" | grep -q -- '--all-patterns' \
+"$BIN" --checkpoint-info "$CK" | grep -q -- '--all-patterns' \
     && ok "--all-patterns survives the checkpoint" || bad "--all-patterns survives the checkpoint"
-PH5H=$("$BIN" --ckpt-info "$CK" | sed -n 's/^      prefixes: //p')
+PH5H=$("$BIN" --checkpoint-info "$CK" | sed -n 's/^      prefixes: //p')
 case "$PH5H" in
     *'"AB" (1 hit(s))'*'"CD" (1 hit(s))') ok "per-pattern hit counts survive the checkpoint";;
     *) bad "per-pattern hit counts (got '$PH5H')";;
@@ -231,18 +267,18 @@ else
 fi
 
 echo "== T5d: no fixed pattern count limit =="
-CK="$TMP/t5d.ckpt"; OUT="$TMP/t5d-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t5d.checkpoint"; OUT="$TMP/t5d-out"; rm -f "$CK"; rm -rf "$OUT"
 PFX=""; I=0
 while [ "$I" -lt 12 ]; do PFX="${PFX:+$PFX,}[0-9A-Za-z_-]"; I=$((I+1)); done
 "$BIN" --mode bip39-12 --prefix "$PFX" --start-offset 0 --tries 100000 --count 1 \
        $NOVERIFY --checkpoint "$CK" --out "$OUT" > "$TMP/t5d.log" 2>&1
 NEW5D=$(ls "$OUT" 2>/dev/null | grep '^hit-' | head -1)
 if [ -n "$NEW5D" ]; then ok "twelve prefixes work at once ($NEW5D)"; else bad "twelve prefixes work at once"; fi
-NP5D=$("$BIN" --ckpt-info "$CK" | sed -n 's/^      prefixes: //p' | grep -o '([0-9]* hit(s))' | wc -l | tr -d ' ')
+NP5D=$("$BIN" --checkpoint-info "$CK" | sed -n 's/^      prefixes: //p' | grep -o '([0-9]* hit(s))' | wc -l | tr -d ' ')
 check "twelve prefixes survive the checkpoint" "$NP5D" "12"
 
 echo "== T5e: default count is one hit per target =="
-CK="$TMP/t5e.ckpt"; OUT="$TMP/t5e-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t5e.checkpoint"; OUT="$TMP/t5e-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --prefix AB --start-offset 0 --tries 100000 --no-verify \
        --checkpoint "$CK" --out "$OUT" > "$TMP/t5e.log" 2>&1
 NH5E=$(ls "$OUT" 2>/dev/null | grep -c '^hit-')
@@ -252,7 +288,7 @@ if [ -n "$N5E" ] && [ "$N5E" -lt 100000 ]; then ok "the default count stops the 
 grep -q 'all target counts reached' "$OUT"/stop-* 2>/dev/null && ok "the default count ends the run" || bad "the default count ends the run"
 
 echo "== T6: tg-wallet (WalletTg) hit, replay, signing half, testnet =="
-CK="$TMP/t6.ckpt"; OUT="$TMP/t6-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t6.checkpoint"; OUT="$TMP/t6-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode tg-wallet --suffix '[0-9A-Za-z_-]' --start-offset 0 --tries 100000000 --count 1 \
        $NOVERIFY --checkpoint "$CK" --out "$OUT" > "$TMP/t6.log" 2>&1
 NEW6=$(ls "$OUT" 2>/dev/null | grep '^hit-' | head -1)
@@ -282,10 +318,10 @@ if [ -n "$NEW6" ]; then
 fi
 T_DER=$("$BIN" --mode tg-wallet --net testnet --derive "$KEY6" "$IDX6" | grep -o 'address 0Q: [A-Za-z0-9_-]\{48\}' | grep -o '[A-Za-z0-9_-]\{48\}')
 if [ -n "$T_DER" ] && [ "$T_DER" != "$A_HIT6" ]; then ok "testnet uses the testnet subwallet (0Q form)"; else bad "testnet uses the testnet subwallet (0Q form)"; fi
-CK6T="$TMP/t6t.ckpt"; OUT="$TMP/t6t-out"; rm -f "$CK6T"; rm -rf "$OUT"
+CK6T="$TMP/t6t.checkpoint"; OUT="$TMP/t6t-out"; rm -f "$CK6T"; rm -rf "$OUT"
 "$BIN" --mode tg-wallet --net testnet --suffix '[0-9A-Za-z_-]' --start-offset 0 --tries 1000000 --count 1 \
        $NOVERIFY --checkpoint "$CK6T" --out "$OUT" > "$TMP/t6t.log" 2>&1
-"$BIN" --ckpt-info "$CK6T" | grep -q "WalletTg (Telegram Wallet) testnet" && ok "testnet flag survives the checkpoint" || bad "testnet flag survives the checkpoint"
+"$BIN" --checkpoint-info "$CK6T" | grep -q "WalletTg (Telegram Wallet) testnet" && ok "testnet flag survives the checkpoint" || bad "testnet flag survives the checkpoint"
 if "$BIN" --mode bip39-12 --net testnet --suffix X --start-offset 0 --out "$TMP/t6v-out" > "$TMP/t6v.log" 2>&1; then
     bad "--net testnet rejected for other modes"
 else
@@ -295,21 +331,21 @@ fi
 echo "== T7: --power validation, determinism across power levels =="
 if "$BIN" --power 0 --suffix ZZZZZZ --out "$TMP/t7bad" > "$TMP/t7a.log" 2>&1; then bad "--power 0 rejected"; else ok "--power 0 rejected"; fi
 if "$BIN" --power 101 --suffix ZZZZZZ --out "$TMP/t7bad" > "$TMP/t7b.log" 2>&1; then bad "--power 101 rejected"; else ok "--power 101 rejected"; fi
-CK="$TMP/t7.ckpt"; OUT="$TMP/t7-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t7.checkpoint"; OUT="$TMP/t7-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --suffix ZZZZZZ --start-offset 0 --tries 4000 $NOVERIFY --checkpoint "$CK" --out "$OUT" > "$TMP/t7c.log" 2>&1
-cp "$CK" "$TMP/t7b.ckpt"
+cp "$CK" "$TMP/t7b.checkpoint"
 "$BIN" --resume "$CK" --tries 8000 --power 100 $NOVERIFY > "$TMP/t7d.log" 2>&1
-"$BIN" --resume "$TMP/t7b.ckpt" --tries 8000 --power 20 $NOVERIFY > "$TMP/t7e.log" 2>&1
+"$BIN" --resume "$TMP/t7b.checkpoint" --tries 8000 --power 20 $NOVERIFY > "$TMP/t7e.log" 2>&1
 check "power 100 processes the same range" "$(next_index "$CK")" "12000"
-check "power 20 processes the same range" "$(next_index "$TMP/t7b.ckpt")" "12000"
+check "power 20 processes the same range" "$(next_index "$TMP/t7b.checkpoint")" "12000"
 P1=$("$BIN" --reveal "$CK" 5000 | grep 'phrase (SECRET' | sed 's/.*: //')
-P2=$("$BIN" --reveal "$TMP/t7b.ckpt" 5000 | grep 'phrase (SECRET' | sed 's/.*: //')
+P2=$("$BIN" --reveal "$TMP/t7b.checkpoint" 5000 | grep 'phrase (SECRET' | sed 's/.*: //')
 if [ -n "$P1" ] && [ "$P1" = "$P2" ]; then ok "same index gives the same phrase at any power"; else bad "same index gives the same phrase at any power"; fi
 
 echo "== T8: target blocks, per-target counts, shared and separate outs =="
 # EN: a) both targets match every address; one address, one shared hit file
 # RU: a) обе цели совпадают с любым адресом; один адрес — один общий hit-файл
-CK="$TMP/t8a.ckpt"; OUT="$TMP/t8a-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t8a.checkpoint"; OUT="$TMP/t8a-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --start-offset 0 --tries 200 --count 1 --out "$OUT" --checkpoint "$CK" --no-verify \
        --target A --suffix '[0-9A-Za-z_-]' --target B --suffix '[0-9A-Za-z_-]' > "$TMP/t8a.log" 2>&1
 FILES=$(ls "$OUT" 2>/dev/null | grep '^hit-' | sort | tr '\n' ',')
@@ -321,20 +357,20 @@ grep -q 'matched target A:' "$OUT/hit-A+B-0.txt" && grep -q 'matched target B:' 
 
 # EN: b) separate per-target out directories get their own copy of the same multi-target hit
 # RU: b) отдельные папки --out на цель получают свою копию одного и того же мультицелевого хита
-CK="$TMP/t8b.ckpt"; OUT="$TMP/t8b-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t8b.checkpoint"; OUT="$TMP/t8b-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --start-offset 0 --tries 200 --count 1 --out "$OUT" --checkpoint "$CK" --no-verify \
        --target A --suffix '[0-9A-Za-z_-]' --out "$OUT/a" \
        --target B --suffix '[0-9A-Za-z_-]' --out "$OUT/b" > "$TMP/t8b.log" 2>&1
 [ -f "$OUT/a/hit-A+B-0.txt" ] && ok "target A writes to its own --out" || bad "target A writes to its own --out"
 [ -f "$OUT/b/hit-A+B-0.txt" ] && ok "target B writes to its own --out" || bad "target B writes to its own --out"
 ls "$OUT" | grep -q '^stop-' && ok "the stop report stays in the job folder" || bad "the stop report stays in the job folder"
-[ -f "$TMP/t8b.ckpt" ] && ok "explicit checkpoint stays outside the job folder" || bad "explicit checkpoint stays outside the job folder"
+[ -f "$TMP/t8b.checkpoint" ] && ok "explicit checkpoint stays outside the job folder" || bad "explicit checkpoint stays outside the job folder"
 
 # EN: c) per-target counts: A stops after one hit, B after two (the range stays open, so the run ends
 # EN:    because both target counts are reached, not because the range ended)
 # RU: c) счётчики на цель: A останавливается после одного хита, B — после двух (диапазон открыт,
 # RU:    поэтому запуск завершается по достижению счётчиков, а не по концу диапазона)
-CK="$TMP/t8c.ckpt"; OUT="$TMP/t8c-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t8c.checkpoint"; OUT="$TMP/t8c-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --start-offset 0 --tries 200000 --out "$OUT" --checkpoint "$CK" --no-verify \
        --target A --suffix '[0-9A-Za-z_-]' --count 1 \
        --target B --suffix '[0-9A-Za-z_-]' --count 2 > "$TMP/t8c.log" 2>&1
@@ -358,7 +394,7 @@ grep -q 'target "A"' "$TMP/t8d.log" && ok "resume reports the named target" || b
 
 # EN: e) A and B reach their counts on one address; C has not matched and keeps the run going
 # RU: e) A и B добирают счётчики на одном адресе; C не совпала и продолжает запуск
-CK="$TMP/t8e.ckpt"; OUT="$TMP/t8e-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t8e.checkpoint"; OUT="$TMP/t8e-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --start-offset 0 --tries 200000 --out "$OUT" --checkpoint "$CK" --no-verify \
        --target A --suffix '[0-9A-Za-z_-]' --count 1 \
        --target B --suffix '[0-9A-Za-z_-]' --count 1 \
@@ -376,7 +412,7 @@ grep -q 'across the 1 remaining target(s)' "$TMP/t8e2.log" \
 
 # EN: f) unnamed blocks become t1, t2, ...; a duplicate name gets a numeric suffix
 # RU: f) блоки без имени становятся t1, t2, ...; повтор имени получает числовой суффикс
-CK="$TMP/t8f.ckpt"; OUT="$TMP/t8f-out"; rm -f "$CK"; rm -rf "$OUT"
+CK="$TMP/t8f.checkpoint"; OUT="$TMP/t8f-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --start-offset 0 --tries 200000 --count 1 --out "$OUT" --checkpoint "$CK" --no-verify \
        --target A --suffix '[0-9A-Za-z_-]' \
        --target --suffix '[0-9A-Za-z_-]' \
@@ -393,7 +429,7 @@ ls -d ../results/job-*/ 2>/dev/null | sort > "$AFTER" || : > "$AFTER"
 NEWJOB=$(comm -13 "$BEFORE" "$AFTER" | head -1)
 if [ -n "$NEWJOB" ]; then
     ok "a run without --out creates results/job-<timestamp>/ ($NEWJOB)"
-    [ -f "$NEWJOB/job.ckpt" ] && ok "the default checkpoint is <job>/job.ckpt" || bad "the default checkpoint is <job>/job.ckpt"
+    [ -f "$NEWJOB/job.checkpoint" ] && ok "the default checkpoint is <job>/job.checkpoint" || bad "the default checkpoint is <job>/job.checkpoint"
     [ -f "$NEWJOB/hit-C-0.txt" ] && ok "the default hit directory is the job folder" || bad "the default hit directory is the job folder"
     ls "$NEWJOB" | grep -q '^stop-' && ok "the stop report is in the job folder" || bad "the stop report is in the job folder"
     rm -rf "$NEWJOB"
@@ -408,18 +444,18 @@ rmdir ../results/job-selftest 2>/dev/null
 echo "== T10: deterministic by default, --random opt-out =="
 OUT="$TMP/t10a-out"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --suffix ZZZZZZ --stop-after 4000 --no-verify --out "$OUT" > "$TMP/t10a.log" 2>&1
-[ -f "$OUT/job.ckpt" ] && ok "a default job is deterministic and writes job.ckpt" || bad "a default job is deterministic and writes job.ckpt"
+[ -f "$OUT/job.checkpoint" ] && ok "a default job is deterministic and writes job.checkpoint" || bad "a default job is deterministic and writes job.checkpoint"
 grep -q 'deterministic range' "$TMP/t10a.log" && ok "a default job reports a deterministic range" || bad "a default job reports a deterministic range"
 grep -q 'deterministic search: indices' "$OUT"/stop-* 2>/dev/null && ok "the stop report of a default job is resumable" || bad "the stop report of a default job is resumable"
-N10=$(next_index "$OUT/job.ckpt")
-"$BIN" --mode bip39-12 --resume "$OUT/job.ckpt" --stop-after 1 --no-verify > "$TMP/t10b.log" 2>&1
+N10=$(next_index "$OUT/job.checkpoint")
+"$BIN" --mode bip39-12 --resume "$OUT/job.checkpoint" --stop-after 1 --no-verify > "$TMP/t10b.log" 2>&1
 grep -q 'resuming bip39-12 search' "$TMP/t10b.log" && ok "a default job resumes without extra flags" || bad "a default job resumes without extra flags"
-N10B=$(next_index "$OUT/job.ckpt")
+N10B=$(next_index "$OUT/job.checkpoint")
 if [ -n "$N10" ] && [ -n "$N10B" ] && [ "$N10B" -gt "$N10" ]; then ok "resume advanced the default job"; else bad "resume advanced the default job"; fi
 
 OUT="$TMP/t10c-out"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --random --suffix '[0-9A-Za-z_-]' --count 1 --no-verify --out "$OUT" > "$TMP/t10c.log" 2>&1
-[ ! -f "$OUT/job.ckpt" ] && ok "--random writes no checkpoint" || bad "--random writes no checkpoint"
+[ ! -f "$OUT/job.checkpoint" ] && ok "--random writes no checkpoint" || bad "--random writes no checkpoint"
 grep -q 'random mode: fresh OS randomness' "$TMP/t10c.log" && ok "--random announces random mode" || bad "--random announces random mode"
 grep -q 'random mode: progress cannot be resumed' "$OUT"/stop-* 2>/dev/null && ok "--random stop report says it cannot be resumed" || bad "--random stop report says it cannot be resumed"
 H10=$(ls "$OUT"/hit-* 2>/dev/null | head -1)

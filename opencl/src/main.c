@@ -62,9 +62,9 @@
 // RU: такой запуск хранит фразу в hit-файлах и не может быть продолжен.
 // EN:
 // EN: This file ties the modules together: option parsing and validation, the CPU-only utility modes
-// EN: (--ckpt-info, --reveal, --derive), the search setup and the batch loop.
+// EN: (--checkpoint-info, --checkpoint-fix, --reveal, --derive), the search setup and the batch loop.
 // RU: Этот файл связывает модули: разбор и проверку параметров, служебные режимы только на CPU
-// RU: (--ckpt-info, --reveal, --derive), подготовку поиска и цикл пакетов.
+// RU: (--checkpoint-info, --checkpoint-fix, --reveal, --derive), подготовку поиска и цикл пакетов.
 
 #include "sv.h"
 #include "platform.h"
@@ -242,11 +242,11 @@ static void parse_args(int argc, char **argv) {
             if (parse_u64(NEXT(), &opt.tries) || !opt.tries)
                 die(tr("--tries must be a positive number", "--tries должен быть положительным числом"));
             opt.tries_given = 1;
-        } else if (!strcmp(a, "--checkpoint")) snprintf(opt.ckpt, sizeof opt.ckpt, "%s", NEXT());
+        } else if (!strcmp(a, "--checkpoint")) snprintf(opt.checkpoint, sizeof opt.checkpoint, "%s", NEXT());
         else if (!strcmp(a, "--resume")) snprintf(opt.resume, sizeof opt.resume, "%s", NEXT());
         else if (!strcmp(a, "--checkpoint-interval")) {
-            opt.ckpt_interval = atoi(NEXT());
-            if (opt.ckpt_interval < 1) opt.ckpt_interval = 1;
+            opt.checkpoint_interval = atoi(NEXT());
+            if (opt.checkpoint_interval < 1) opt.checkpoint_interval = 1;
         } else if (!strcmp(a, "--stop-after")) {
             if (parse_u64(NEXT(), &opt.stop_after) || !opt.stop_after)
                 die(tr("--stop-after must be a positive number", "--stop-after должен быть положительным числом"));
@@ -259,7 +259,8 @@ static void parse_args(int argc, char **argv) {
             snprintf(opt.reveal_file, sizeof opt.reveal_file, "%s", NEXT());
             if (parse_u64(NEXT(), &opt.reveal_index))
                 die(tr("--reveal index must be a number", "индекс --reveal должен быть числом"));
-        } else if (!strcmp(a, "--ckpt-info")) { opt.ckpt_info = 1; snprintf(opt.ckpt, sizeof opt.ckpt, "%s", NEXT()); }
+        } else if (!strcmp(a, "--checkpoint-info")) { opt.checkpoint_info = 1; snprintf(opt.checkpoint, sizeof opt.checkpoint, "%s", NEXT()); }
+        else if (!strcmp(a, "--checkpoint-fix")) { opt.checkpoint_fix = 1; snprintf(opt.checkpoint, sizeof opt.checkpoint, "%s", NEXT()); }
         else if (!strcmp(a, "--selftest-det")) opt.selftest_det = 1;
         else if (!strcmp(a, "--help") || !strcmp(a, "-h")) usage(0);
         else usage(1);
@@ -274,7 +275,7 @@ static void validate_args(void) {
     if (opt.power < 1 || opt.power > 100)
         die(tr("--power: expected 1..100 (percent, 100 = no limit)",
                "--power: ожидается 1..100 (проценты, 100 = без ограничения)"));
-    if (opt.random_mode && (opt.start_given || opt.tries_given || opt.ckpt[0] || opt.resume[0]))
+    if (opt.random_mode && (opt.start_given || opt.tries_given || opt.checkpoint[0] || opt.resume[0]))
         die(tr("--random cannot be combined with --start-offset, --tries, --checkpoint or --resume",
                "--random нельзя сочетать с --start-offset, --tries, --checkpoint или --resume"));
     if (opt.random_mode && opt.stop_after)
@@ -284,30 +285,29 @@ static void validate_args(void) {
 
 // ---------------------------------------------------------------- CPU-only utility modes
 
-// EN: --ckpt-info: dump of a checkpoint file (without the secret key). The field labels stay
+// EN: --checkpoint-info: dump of a checkpoint file (without the secret key). The field labels stay
 // EN: English on purpose: this output is machine-readable and is parsed by tests and scripts.
-// RU: --ckpt-info: дамп файла checkpoint (без секретного ключа). Названия полей намеренно остаются
-// RU: английскими: этот вывод машиночитаем, его разбирают тесты и скрипты.
-static int cmd_ckpt_info(void) {
-    struct CkptIn in;
+// RU: --checkpoint-info: дамп файла checkpoint (без секретного ключа). Названия полей намеренно
+// RU: остаются английскими: этот вывод машиночитаем, его разбирают тесты и скрипты.
+static int cmd_checkpoint_info(void) {
+    struct Checkpoint in;
     char err[256];
-    if (ckpt_load(opt.ckpt, &in, err, sizeof err)) die("%s: %s", opt.ckpt, err);
-    printf("checkpoint: %s\n  job folder: %s\n  mode %s, form %s%s\n", opt.ckpt,
-           in.job_dir[0] ? in.job_dir : "(not stored, legacy format)", MODE_NAME[in.mode],
-           (in.flags & 4) ? ((in.flags & 1) ? "kQ" : "0Q") : ((in.flags & 1) ? "EQ" : "UQ"),
-           in.mode == TG ? ((in.flags & 4) ? ", testnet" : ", mainnet") : "");
+    if (checkpoint_load(opt.checkpoint, &in, err, sizeof err)) die("%s: %s", opt.checkpoint, err);
+    printf("checkpoint: %s\n  job folder: %s\n  mode %s, form %s%s\n", opt.checkpoint,
+           in.job_dir[0] ? in.job_dir : "(not stored)", MODE_NAME[in.mode],
+           (in.flags & 2) ? ((in.flags & 1) ? "kQ" : "0Q") : ((in.flags & 1) ? "EQ" : "UQ"),
+           in.mode == TG ? ((in.flags & 2) ? ", testnet" : ", mainnet") : "");
     printf("  targets (%u):\n", in.n_targets);
     for (uint32_t t = 0; t < in.n_targets; t++) {
-        const CkptTarget *ct = &in.targets[t];
+        const CheckpointTarget *ct = &in.targets[t];
         printf("    %s: %llu hit(s), %s\n", ct->name, (unsigned long long)ct->hits,
                (ct->flags & 2) ? "count reached/limited" : "no count limit");
         if (ct->label[0] && strcmp(ct->label, ct->name)) printf("      label: %s\n", ct->label);
         if (ct->flags & 2) printf("      count: %llu\n", (unsigned long long)ct->count);
         if (ct->out[0]) printf("      out: %s\n", ct->out);
         if (ct->flags & 1) printf("      ignore case\n");
-        if (ct->flags & 8) printf("      prefix OR suffix (--match or)\n");
-        if (ct->flags & 16) printf("      --all-patterns (--count per pattern)\n");
-        if (ct->flags & 4) printf("      legacy OR semantics (checkpoint v2-v4)\n");
+        if (ct->flags & 4) printf("      prefix OR suffix (--match or)\n");
+        if (ct->flags & 8) printf("      --all-patterns (--count per pattern)\n");
         if (ct->n_prefix) {
             printf("      prefixes:");
             const char *isep = "";
@@ -337,12 +337,29 @@ static int cmd_ckpt_info(void) {
     else printf("  range end: unlimited\n");
     if (in.mode == TG)
         printf("  wallet: WalletTg (Telegram Wallet) %s subwallet 0x%08X\n",
-               (in.flags & 4) ? "testnet" : "mainnet",
-               (in.flags & 4) ? TG_SUBWALLET_TESTNET : TG_SUBWALLET_MAINNET);
+               (in.flags & 2) ? "testnet" : "mainnet",
+               (in.flags & 2) ? TG_SUBWALLET_TESTNET : TG_SUBWALLET_MAINNET);
     printf("  candidates done %llu, unique hits %llu, verified hits %llu\n",
            (unsigned long long)in.done, (unsigned long long)in.unique_hits,
            (unsigned long long)in.verified);
-    ckpt_in_free(&in);
+    checkpoint_free(&in);
+    return 0;
+}
+
+// EN: --checkpoint-fix FILE: validate a hand-edited checkpoint (every field check, but not the
+// EN: checksum) and rewrite it with a fresh checksum, normalized quoting, comments and line endings.
+// RU: --checkpoint-fix FILE: проверить отредактированный вручную checkpoint (все проверки полей, кроме
+// RU: контрольной суммы) и перезаписать его с новой суммой, нормализованными кавычками, комментариями
+// RU: и концами строк.
+static int cmd_checkpoint_fix(void) {
+    struct Checkpoint in;
+    char err[256];
+    if (checkpoint_fix(opt.checkpoint, &in, err, sizeof err)) die("%s: %s", opt.checkpoint, err);
+    printf("checkpoint fixed: %s\n", opt.checkpoint);
+    printf("  mode %s, %u target(s), next index %llu, %llu unique hit(s)\n",
+           MODE_NAME[in.mode], in.n_targets, (unsigned long long)in.next,
+           (unsigned long long)in.unique_hits);
+    checkpoint_free(&in);
     return 0;
 }
 
@@ -375,13 +392,13 @@ static void print_derived(const Derived *d) {
 // EN: --reveal CHECKPOINT INDEX: derive and print the candidate stored at an index of a checkpoint.
 // RU: --reveal CHECKPOINT INDEX: вывести и напечатать кандидата, сохранённого под индексом checkpoint.
 static int cmd_reveal(void) {
-    struct CkptIn in;
+    struct Checkpoint in;
     char err[256];
-    if (ckpt_load(opt.reveal_file, &in, err, sizeof err)) die("%s: %s", opt.reveal_file, err);
-    if (opt.set_net && (!!(in.flags & 4)) != !!opt.testnet)
+    if (checkpoint_load(opt.reveal_file, &in, err, sizeof err)) die("%s: %s", opt.reveal_file, err);
+    if (opt.set_net && (!!(in.flags & 2)) != !!opt.testnet)
         die(tr("--reveal: --net conflicts with the checkpoint", "--reveal: --net конфликтует с checkpoint"));
     opt.mode = (int)in.mode;
-    opt.testnet = (in.flags & 4) ? 1 : 0;
+    opt.testnet = (in.flags & 2) ? 1 : 0;
     Derived d;
     derive_candidate(in.key, opt.mode, opt.reveal_index, &d);
     printf("mode: %s, index %llu of checkpoint %s\n", MODE_NAME[opt.mode], (unsigned long long)opt.reveal_index, opt.reveal_file);
@@ -393,7 +410,7 @@ static int cmd_reveal(void) {
                   "этот её %s\n"),
                ton_valid(d.phrase, d.phrase_len) ? tr("passes", "проходит") : tr("does NOT pass", "НЕ проходит"));
     crypto_wipe(&d, sizeof d);
-    ckpt_in_free(&in);
+    checkpoint_free(&in);
     return 0;
 }
 
@@ -433,9 +450,9 @@ static void setup_search(int real_search) {
                "нужен --suffix или --prefix (см. --help)"));
 
     if (opt.resume[0]) {
-        struct CkptIn in;
+        struct Checkpoint in;
         char err[256];
-        if (ckpt_load(opt.resume, &in, err, sizeof err)) die("%s: %s", opt.resume, err);
+        if (checkpoint_load(opt.resume, &in, err, sizeof err)) die("%s: %s", opt.resume, err);
         if (opt.set_mode && (int)in.mode != opt.mode)
             die(tr("--resume: --mode %s conflicts with the checkpoint (%s)",
                    "--resume: --mode %s конфликтует с checkpoint (%s)"),
@@ -443,12 +460,12 @@ static void setup_search(int real_search) {
         if (opt.set_form && ((in.flags & 1) != 0) != !!opt.bounceable)
             die(tr("--resume: --form conflicts with the checkpoint",
                    "--resume: --form конфликтует с checkpoint"));
-        if (opt.set_net && ((in.flags & 4) != 0) != !!opt.testnet)
+        if (opt.set_net && ((in.flags & 2) != 0) != !!opt.testnet)
             die(tr("--resume: --net conflicts with the checkpoint",
                    "--resume: --net конфликтует с checkpoint"));
         opt.mode = (int)in.mode;
         opt.bounceable = (in.flags & 1) != 0;
-        opt.testnet = (in.flags & 4) != 0;
+        opt.testnet = (in.flags & 2) != 0;
         if (opt.mode != TON24 && in.s1_next != in.next)
             die(tr("%s: inconsistent checkpoint (stage cursors differ in a single-stage mode)",
                    "%s: несогласованный checkpoint (курсоры стадий различаются в одностадийном режиме)"),
@@ -474,11 +491,11 @@ static void setup_search(int real_search) {
             det.backfill_base = in.next;                 // RU: выжившие прерванного запуска восстанавливаются детерминированно
             det.backfill_end = in.s1_next;
         }
-        snprintf(det.ckpt_path, sizeof det.ckpt_path, "%s", opt.ckpt[0] ? opt.ckpt : opt.resume);
+        snprintf(det.checkpoint_path, sizeof det.checkpoint_path, "%s", opt.checkpoint[0] ? opt.checkpoint : opt.resume);
         total_done = (double)in.done;
         hits_found = (int)in.unique_hits;
         verified = (int)in.verified;
-        ckpt_in_free(&in);
+        checkpoint_free(&in);
         // EN: --tries on resume re-scopes the remaining range: end = next + tries
         // RU: --tries при resume задаёт остаток диапазона: end = next + tries
         if (opt.tries_given) {
@@ -521,8 +538,8 @@ static void setup_search(int real_search) {
                 det.end = e;
                 det.has_end = 1;
             }
-            if (opt.ckpt[0]) snprintf(det.ckpt_path, sizeof det.ckpt_path, "%s", opt.ckpt);
-            else if (real_search) snprintf(det.ckpt_path, sizeof det.ckpt_path, "%s%cjob.ckpt", job_dir, PATH_SEP);
+            if (opt.checkpoint[0]) snprintf(det.checkpoint_path, sizeof det.checkpoint_path, "%s", opt.checkpoint);
+            else if (real_search) snprintf(det.checkpoint_path, sizeof det.checkpoint_path, "%s%cjob.checkpoint", job_dir, PATH_SEP);
         }
     }
     // EN: targets are final here (parsed, or restored from the checkpoint): build the fast all-targets
@@ -605,7 +622,7 @@ static void print_banner(int real_search, double expected, int expected_active) 
         printf(tr("deterministic range: [%llu, %s), checkpoint %s, autosave every %d s; stop with Ctrl+C and resume with --resume\n",
                   "детерминированный диапазон: [%llu, %s), checkpoint %s, автосохранение каждые %d с; остановить Ctrl+C, продолжить через --resume\n"),
                (unsigned long long)det.start, det.has_end ? tr("end below", "конец ниже") : tr("unlimited", "без ограничения"),
-               det.ckpt_path, opt.ckpt_interval);
+               det.checkpoint_path, opt.checkpoint_interval);
         if (det.has_end)
             printf(tr("range end (exclusive): %llu (%.4g candidates to do)\n",
                       "конец диапазона (не включая): %llu (осталось кандидатов: %.4g)\n"),
@@ -659,7 +676,7 @@ static void print_progress(const LoopState *st, double done, double now) {
     if (hits_found > verified)
         printf(tr(" (%d unverified)", " (%d неподтверждённых)"), hits_found - verified);
     if (det.enabled && det.last_save > 0)
-        printf(tr(", ckpt saved %.0f s ago", ", checkpoint сохранён %.0f с назад"), now - det.last_save);
+        printf(tr(", checkpoint saved %.0f s ago", ", checkpoint сохранён %.0f с назад"), now - det.last_save);
     if (n_targets > 0) {
         int active = 0;
         double expected_now = expected_tries_remaining(&active);
@@ -920,7 +937,7 @@ static int real_main(int argc, char **argv) {
     opt.verify = 1;
     opt.threads = cpu_count();
     opt.power = 65;
-    opt.ckpt_interval = 30;
+    opt.checkpoint_interval = 30;
     exe_dir(root_dir, sizeof root_dir);
     { // EN: root = parent of the executable's directory | RU: корень = родитель каталога бинарника
         char *s = strrchr(root_dir, PATH_SEP);
@@ -939,13 +956,14 @@ static int real_main(int argc, char **argv) {
     validate_args();
     mutex_init(&hit_lock);
     mutex_init(&stat_lock);
-    mutex_init(&ckpt_lock);
+    mutex_init(&checkpoint_lock);
     mutex_init(&finish_lock);
 
     // EN: CPU-only utility modes that need no GPU and no search state
     // RU: служебные режимы только на CPU, которым не нужны GPU и состояние поиска
     if (opt.selftest_det) return selftest_det();
-    if (opt.ckpt_info) return cmd_ckpt_info();
+    if (opt.checkpoint_fix) return cmd_checkpoint_fix();
+    if (opt.checkpoint_info) return cmd_checkpoint_info();
     if (opt.reveal_file[0]) return cmd_reveal();
     if (opt.derive_key[0]) return cmd_derive();
 

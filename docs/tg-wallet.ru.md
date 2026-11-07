@@ -70,7 +70,7 @@ data = хранилище WalletTg, revision 00:
 
 ```sh
 ./gramvanity --mode tg-wallet --suffix 'HELLO' --start-offset 0 --tries 100000000 --out ../results/tg-hello
-./gramvanity --reveal ../results/tg-hello/job.ckpt 1234567   # 24 слова, оба ключа, адрес
+./gramvanity --reveal ../results/tg-hello/job.checkpoint 1234567   # 24 слова, оба ключа, адрес
 ./gramvanity --mode tg-wallet --derive <key> 1234567         # то же, по ключу из hit-файла
 ```
 
@@ -154,7 +154,7 @@ data = хранилище WalletTg, revision 00:
 ```
 
 Обычные hit-файлы не содержат фразу; передайте её из `--reveal`:
-`./gramvanity --reveal ../results/tg-main/job.ckpt <index> | ../verify-go/w5addr activate --phrase - --send`.
+`./gramvanity --reveal ../results/tg-main/job.checkpoint <index> | ../verify-go/w5addr activate --phrase - --send`.
 
 На Windows используйте `..\verify-go\w5addr.exe`. `--phrase -` читает фразу из stdin, что удобно
 для передачи вывода `--reveal` без печати слов.
@@ -226,11 +226,11 @@ Telegram Wallet умеет заменять фразу существующег�
 # 2. mainnet, большой ограниченный диапазон (детерминированно и возобновляемо по умолчанию)
 ./gramvanity --mode tg-wallet --suffix '[a-z_]HELLO' --start-offset 0 \
              --tries 100000000000 --out ../results/tg-main
-#    (Ctrl+C в любой момент; checkpoint — ../results/tg-main/job.ckpt; продолжить позже:)
-./gramvanity --resume ../results/tg-main/job.ckpt
+#    (Ctrl+C в любой момент; checkpoint — ../results/tg-main/job.checkpoint; продолжить позже:)
+./gramvanity --resume ../results/tg-main/job.checkpoint
 
 # 3. после хита: восстановить 24 слова, активировать, импортировать
-./gramvanity --reveal ../results/tg-main/job.ckpt <index>  # или команда --derive из hit-файла
+./gramvanity --reveal ../results/tg-main/job.checkpoint <index>  # или команда --derive из hit-файла
 ../verify-go/w5addr activate --phrase "<24 words>" --check
 ../verify-go/w5addr activate --phrase "<24 words>" --send
 ```

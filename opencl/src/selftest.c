@@ -1,9 +1,9 @@
 // EN: selftest.c - startup self-test and deterministic-search unit tests (see selftest.h). The unit
-// EN: tests exercise determinism, checkpoints (roundtrip, corruption, legacy formats), target matching
-// EN: and the --all-patterns bookkeeping; they run without a GPU.
+// EN: tests exercise determinism, checkpoints (text roundtrips, checksums, hand edits), target
+// EN: matching and the --all-patterns bookkeeping; they run without a GPU.
 // RU: selftest.c - стартовый self-test и unit-тесты детерминированного поиска (см. selftest.h).
-// RU: Тесты проверяют детерминизм, checkpoint (roundtrip, повреждение, старые форматы), совпадение
-// RU: целей и учёт --all-patterns; GPU для них не нужен.
+// RU: Тесты проверяют детерминизм, checkpoint (текстовые roundtrip'ы, контрольные суммы, ручные
+// RU: правки), совпадение целей и учёт --all-patterns; GPU для них не нужен.
 // EN: The assertion labels and the "SELF-TEST FAILED" tag stay English: they are stable identifiers
 // EN: that scripts and the AGENTS.md safety rule refer to, not prose for the end user.
 // RU: Метки проверок и тег "SELF-TEST FAILED" остаются английскими: это стабильные идентификаторы,
@@ -207,6 +207,37 @@ void self_test(void) {
     if (!bip39_valid(idx, 24)) die("SELF-TEST FAILED: BIP39 checksum (24)");
 }
 
+// EN: test helpers: rewrite a checkpoint file line by line, simulating hand edits. The line whose
+// EN: trimmed content starts with `prefix` is replaced with `replacement` ("" deletes the line).
+// RU: тестовые помощники: переписывают файл checkpoint построчно, имитируя ручные правки. Строка,
+// RU: чьё содержимое после пробелов начинается с `prefix`, заменяется на `replacement` ("" удаляет).
+static void test_edit_line(const char *path, const char *prefix, const char *replacement) {
+    static char buf[524288];
+    FILE *rf = fopen(path, "rb");
+    if (!rf) return;
+    size_t len = fread(buf, 1, sizeof buf - 1, rf);
+    fclose(rf);
+    FILE *wf = fopen(path, "wb");
+    if (!wf) return;
+    char *p = buf, *end = buf + len;
+    while (p < end) {
+        char *nl = memchr(p, '\n', (size_t)(end - p));
+        size_t ll = nl ? (size_t)(nl - p) : (size_t)(end - p);
+        const char *q = p;
+        size_t rem = ll;
+        while (rem && (*q == ' ' || *q == '\t')) { q++; rem--; }
+        size_t pl = strlen(prefix);
+        if (rem >= pl && !memcmp(q, prefix, pl)) {
+            if (replacement[0]) fprintf(wf, "%s\n", replacement);
+        } else {
+            fwrite(p, 1, ll, wf);
+            fputc('\n', wf);
+        }
+        p += ll + (nl ? 1 : 0);
+    }
+    fclose(wf);
+}
+
 static void det_unit_tests(void) {
     // EN: 1. determinism: key+index -> same entropy every time, different key/index -> different
     // RU: 1. детерминизм: ключ+индекс -> одна и та же энтропия, другой ключ/индекс -> другая
@@ -357,35 +388,35 @@ static void det_unit_tests(void) {
     snprintf(job_dir, sizeof job_dir, "%s%cresults%cjob-selftest", root_dir, PATH_SEP, PATH_SEP);
     char path[4096];
     mkdir_p(job_dir);
-    snprintf(path, sizeof path, "%s%cselftest.ckpt", job_dir, PATH_SEP);
+    snprintf(path, sizeof path, "%s%cselftest.checkpoint", job_dir, PATH_SEP);
     remove(path);
-    snprintf(det.ckpt_path, sizeof det.ckpt_path, "%s", path);
-    tcheck(checkpoint_save() == 0, "ckpt: saved");
-    struct CkptIn in;
+    snprintf(det.checkpoint_path, sizeof det.checkpoint_path, "%s", path);
+    tcheck(checkpoint_save() == 0, "checkpoint: saved");
+    struct Checkpoint in;
     char err[256];
-    tcheck(ckpt_load(path, &in, err, sizeof err) == 0, "ckpt: loaded");
-    int same = in.mode == TG && (in.flags & 1) && (in.flags & 4) && in.n_targets == 2 &&
+    tcheck(checkpoint_load(path, &in, err, sizeof err) == 0, "checkpoint: loaded");
+    int same = in.mode == TG && (in.flags & 1) && (in.flags & 2) && in.n_targets == 2 &&
                !strcmp(in.targets[0].name, "A") && !strcmp(in.targets[0].label, ta->label) &&
                in.targets[0].n_suffix == 1 &&
                !strcmp(in.targets[0].suffix[0], "[a-z_]OK") && (in.targets[0].flags & 2) &&
                !(in.targets[0].flags & 1) && in.targets[0].count == 1 && in.targets[0].hits == 1 &&
-               (in.targets[0].flags & 16) && in.targets[0].suf_hits && in.targets[0].suf_hits[0] == 1 &&
+               (in.targets[0].flags & 8) && in.targets[0].suf_hits && in.targets[0].suf_hits[0] == 1 &&
                !strcmp(in.targets[0].out, ta->out_dir) &&
                !strcmp(in.targets[1].name, "B") && !strcmp(in.targets[1].label, "B") &&
                in.targets[1].n_prefix == 1 &&
                !strcmp(in.targets[1].prefix[0], "MOON") && in.targets[1].n_suffix == 1 &&
                !strcmp(in.targets[1].suffix[0], "HELLO") && (in.targets[1].flags & 1) &&
                !(in.targets[1].flags & 2) && in.targets[1].hits == 3 &&
-               !(in.targets[1].flags & 16) && in.targets[1].pre_hits && in.targets[1].pre_hits[0] == 2 &&
+               !(in.targets[1].flags & 8) && in.targets[1].pre_hits && in.targets[1].pre_hits[0] == 2 &&
                in.targets[1].suf_hits && in.targets[1].suf_hits[0] == 1 &&
                !strcmp(in.targets[1].out, tb->out_dir) &&
                !strcmp(in.job_dir, job_dir) && in.start == 1000 && in.next == 1050 && in.s1_next == 1050 &&
                in.end == 1100 && in.done == 123456 && in.unique_hits == 4 && in.verified == 3 &&
                !memcmp(in.key, k1, 32);
-    tcheck(same, "ckpt: all target fields survive the roundtrip (v8)");
-    ckpt_in_free(&in);
-    // EN: corrupt one byte -> must be rejected
-    // RU: портим один байт -> файл должен быть отвергнут
+    tcheck(same, "checkpoint: all target fields survive the roundtrip");
+    checkpoint_free(&in);
+    // EN: corrupt one byte -> the checksum must catch it
+    // RU: портим один байт -> контрольная сумма должна это поймать
     FILE *f = fopen(path, "r+b");
     if (f) {
         fseek(f, 40, SEEK_SET);
@@ -394,16 +425,160 @@ static void det_unit_tests(void) {
         fputc(ch ^ 0x40, f);
         fclose(f);
     }
-    tcheck(ckpt_load(path, &in, err, sizeof err) == -1, "ckpt: corrupted file rejected");
-    // EN: truncated file -> must be rejected
-    // RU: обрезанный файл -> должен быть отвергнут
+    tcheck(checkpoint_load(path, &in, err, sizeof err) == -1, "checkpoint: corrupted file rejected");
+    // EN: truncated file (part of the checksum line is gone) -> rejected
+    // RU: обрезанный файл (срезана часть строки checksum) -> отвергнут
     f = fopen(path, "rb");
-    uint8_t buf[65536];
+    static uint8_t buf[524288];
     size_t len = f ? fread(buf, 1, sizeof buf, f) : 0;
     if (f) fclose(f);
     f = fopen(path, "wb");
     if (f) { fwrite(buf, 1, len - 10, f); fclose(f); }
-    tcheck(ckpt_load(path, &in, err, sizeof err) == -1, "ckpt: truncated file rejected");
+    tcheck(checkpoint_load(path, &in, err, sizeof err) == -1, "checkpoint: truncated file rejected");
+    // EN: hand edit: a raised count breaks the checksum, --checkpoint-fix legalizes the edit
+    // RU: ручная правка: поднятый count ломает контрольную сумму, --checkpoint-fix её легализует
+    checkpoint_save(); // EN: a clean file again | RU: снова чистый файл
+    test_edit_line(path, "count", "count = 5");
+    tcheck(checkpoint_load(path, &in, err, sizeof err) == -1,
+           "checkpoint: hand edit without --checkpoint-fix rejected");
+    tcheck(checkpoint_fix(path, &in, err, sizeof err) == 0,
+           "checkpoint: --checkpoint-fix accepts the hand edit");
+    checkpoint_free(&in);
+    tcheck(checkpoint_load(path, &in, err, sizeof err) == 0 && in.n_targets == 2 &&
+           in.targets[0].count == 5 && (in.targets[0].flags & 2),
+           "checkpoint: the edited count survives fix and reload");
+    checkpoint_free(&in);
+    checkpoint_save(); // EN: restore the original state for the next tests | RU: возвращаем исходное состояние для следующих тестов
+    // EN: CRLF line endings and a UTF-8 BOM are tolerated: hashing ignores CR bytes
+    // RU: концы строк CRLF и UTF-8 BOM допускаются: хеширование игнорирует CR-байты
+    {
+        f = fopen(path, "rb");
+        len = f ? fread(buf, 1, sizeof buf, f) : 0;
+        if (f) fclose(f);
+        f = fopen(path, "wb");
+        if (f) {
+            static uint8_t crlf[1048576];
+            size_t o = 0;
+            crlf[o++] = 0xEF; crlf[o++] = 0xBB; crlf[o++] = 0xBF;
+            for (size_t k = 0; k < len; k++) {
+                if (buf[k] == '\n') crlf[o++] = '\r';
+                crlf[o++] = buf[k];
+            }
+            fwrite(crlf, 1, o, f);
+            fclose(f);
+        }
+    }
+    tcheck(checkpoint_load(path, &in, err, sizeof err) == 0, "checkpoint: CRLF and BOM are tolerated");
+    checkpoint_free(&in);
+    // EN: a binary file (any foreign format) is rejected with the same message
+    // RU: бинарный файл (любой чужой формат) отвергается с тем же сообщением
+    {
+        f = fopen(path, "wb");
+        if (f) {
+            uint8_t junk[64];
+            memcpy(junk, "SVANCKP\0", 8);
+            memset(junk + 8, 0xAB, 56);
+            fwrite(junk, 1, sizeof junk, f);
+            fclose(f);
+        }
+    }
+    tcheck(checkpoint_load(path, &in, err, sizeof err) == -1, "checkpoint: binary file rejected as foreign");
+    // EN: hand-built minimal files: the pairing of pattern and per-pattern hits lines. The checksum
+    // EN: is the last significant line and covers every line before it.
+    // RU: собранные вручную минимальные файлы: пары строк шаблон/хиты. Контрольная сумма — последняя
+    // RU: значащая строка и накрывает все строки до себя.
+    {
+        char keyhex[65], sumhex[65];
+        hexs(k1, 32, keyhex);
+        char body[2048], full[2560];
+        size_t bo, fo;
+        uint8_t d[32];
+        // EN: the trailing suffix_hits may be omitted: the last pattern keeps zero
+        // RU: хвостовую suffix_hits можно опустить: у последнего шаблона остаётся ноль
+        bo = (size_t)snprintf(body, sizeof body,
+                              "format = gramvanity-checkpoint\n"
+                              "version = 1\n"
+                              "mode = bip39-12\n"
+                              "next = 10\n"
+                              "key = %s\n"
+                              "[target]\n"
+                              "name = t1\n"
+                              "suffix = AAA\n"
+                              "suffix = BBB\n"
+                              "suffix_hits = 7\n",
+                              keyhex);
+        sha256((const uint8_t *)body, bo, d);
+        hexs(d, 32, sumhex);
+        fo = (size_t)snprintf(full, sizeof full, "%schecksum = %s\n", body, sumhex);
+        f = fopen(path, "wb");
+        if (f) { fwrite(full, 1, fo, f); fclose(f); }
+        tcheck(checkpoint_load(path, &in, err, sizeof err) == 0 && in.n_targets == 1 &&
+               in.targets[0].n_suffix == 2 && in.targets[0].suf_hits[0] == 7 &&
+               in.targets[0].suf_hits[1] == 0,
+               "checkpoint: a missing trailing suffix_hits defaults to zero");
+        checkpoint_free(&in);
+        // EN: more hits lines than pattern lines -> rejected
+        // RU: строк хитов больше, чем строк шаблонов -> отвергается
+        bo = (size_t)snprintf(body, sizeof body,
+                              "format = gramvanity-checkpoint\n"
+                              "version = 1\n"
+                              "mode = bip39-12\n"
+                              "next = 10\n"
+                              "key = %s\n"
+                              "[target]\n"
+                              "name = t1\n"
+                              "suffix = AAA\n"
+                              "suffix_hits = 7\n"
+                              "suffix_hits = 8\n",
+                              keyhex);
+        sha256((const uint8_t *)body, bo, d);
+        hexs(d, 32, sumhex);
+        fo = (size_t)snprintf(full, sizeof full, "%schecksum = %s\n", body, sumhex);
+        f = fopen(path, "wb");
+        if (f) { fwrite(full, 1, fo, f); fclose(f); }
+        tcheck(checkpoint_load(path, &in, err, sizeof err) == -1,
+               "checkpoint: extra suffix_hits without a pattern rejected");
+    }
+    // EN: quoting: spaces, quotes, '#' and Cyrillic survive the file byte-exact; the writer quotes
+    // EN: exactly the values that need it. Patterns keep their restricted charset, so the tricky
+    // EN: values live in the label and the hit directory.
+    // RU: кавычки: пробелы, кавычки, '#' и кириллица переживают запись байт-в-байт; писатель берёт
+    // RU: в кавычки ровно те значения, которым это нужно. Шаблоны держат свой ограниченный алфавит,
+    // RU: поэтому каверзные значения живут в метке и каталоге хитов.
+    n_targets = 0;
+    Target *tq = new_target();
+    snprintf(tq->name, sizeof tq->name, "Q1");
+    snprintf(tq->given_name, sizeof tq->given_name, "Q1");
+    snprintf(tq->label, sizeof tq->label, "%s", "\xD0\x9F\xD0\xB0\xD1\x88\xD0\xB0 #1 \"x\"");
+    tq->name_given = 1;
+    tq->has_suffix = 1;
+    strlist_add(&tq->suffix, "[0-9]", 5);
+    strlist_add(&tq->suffix, "AB-", 3);
+    tq->ignore_case = 1;
+    tq->match_or = 1;
+    snprintf(tq->out_dir, sizeof tq->out_dir, "%s%cresults%cout with space", root_dir, PATH_SEP, PATH_SEP);
+    target_compile(tq);
+    remove(path);
+    tcheck(checkpoint_save() == 0, "checkpoint: saved with tricky strings");
+    {
+        static char fbuf[524288];
+        f = fopen(path, "rb");
+        size_t flen = f ? fread(fbuf, 1, sizeof fbuf - 1, f) : 0;
+        if (f) fclose(f);
+        fbuf[flen] = 0;
+        tcheck(strstr(fbuf, "\"\xD0\x9F\xD0\xB0\xD1\x88\xD0\xB0 #1 \\\"x\\\"\"") != NULL &&
+               strstr(fbuf, "out with space\"") != NULL && strstr(fbuf, "= [0-9]\n") != NULL,
+               "checkpoint: values are quoted exactly when needed");
+    }
+    tcheck(checkpoint_load(path, &in, err, sizeof err) == 0 && in.n_targets == 1 &&
+           !strcmp(in.targets[0].label, "\xD0\x9F\xD0\xB0\xD1\x88\xD0\xB0 #1 \"x\"") &&
+           in.targets[0].n_suffix == 2 &&
+           !strcmp(in.targets[0].suffix[0], "[0-9]") &&
+           !strcmp(in.targets[0].suffix[1], "AB-") &&
+           !strcmp(in.targets[0].out, tq->out_dir) &&
+           (in.targets[0].flags & 1) && (in.targets[0].flags & 4),
+           "checkpoint: tricky strings survive the roundtrip");
+    checkpoint_free(&in);
     // EN: hundreds of patterns: no fixed count and no fixed-size checkpoint buffer
     // RU: сотни шаблонов: нет фиксированного числа и буфера checkpoint фиксированного размера
     n_targets = 0;
@@ -413,13 +588,13 @@ static void det_unit_tests(void) {
     for (int k = 0; k < 700; k++) strlist_add(&tmany->suffix, "[A-Z0-9_-]", strlen("[A-Z0-9_-]"));
     target_compile(tmany);
     remove(path);
-    tcheck(checkpoint_save() == 0, "ckpt: saved with 700 patterns");
-    tcheck(ckpt_load(path, &in, err, sizeof err) == 0 && in.n_targets == 1 && in.targets[0].n_suffix == 700,
-           "ckpt: 700 patterns survive the roundtrip");
-    ckpt_in_free(&in);
+    tcheck(checkpoint_save() == 0, "checkpoint: saved with 700 patterns");
+    tcheck(checkpoint_load(path, &in, err, sizeof err) == 0 && in.n_targets == 1 && in.targets[0].n_suffix == 700,
+           "checkpoint: 700 patterns survive the roundtrip");
+    checkpoint_free(&in);
     remove(path);
-    // EN: more targets than the old fixed 256-entry table: the list grows on demand
-    // RU: целей больше, чем в старой фиксированной таблице на 256: список растёт по необходимости
+    // EN: hundreds of targets: the list grows on demand
+    // RU: сотни целей: список растёт по необходимости
     n_targets = 0;
     for (int k = 0; k < 300; k++) {
         Target *tk = new_target();
@@ -431,45 +606,13 @@ static void det_unit_tests(void) {
         target_compile(tk);
     }
     remove(path);
-    tcheck(checkpoint_save() == 0, "ckpt: saved with 300 targets");
-    tcheck(ckpt_load(path, &in, err, sizeof err) == 0 && in.n_targets == 300 &&
+    tcheck(checkpoint_save() == 0, "checkpoint: saved with 300 targets");
+    tcheck(checkpoint_load(path, &in, err, sizeof err) == 0 && in.n_targets == 300 &&
            !strcmp(in.targets[299].name, "t300") && in.targets[299].n_suffix == 1 &&
            !strcmp(in.targets[299].suffix[0], "N299"),
-           "ckpt: 300 targets survive the roundtrip");
-    ckpt_in_free(&in);
+           "checkpoint: 300 targets survive the roundtrip");
+    checkpoint_free(&in);
     remove(path);
-    // EN: a version 4 checkpoint still loads as one legacy OR target
-    // RU: checkpoint версии 4 по-прежнему загружается как одна legacy OR-цель
-    {
-        uint8_t old[4096];
-        size_t o = 0;
-        memset(old, 0, sizeof old);
-        memcpy(old, CKPT_MAGIC "\0", 8); o = 8;
-        le32p(old + o, 4); o += 4;
-        le32p(old + o, TG); o += 4;
-        le32p(old + o, 2); o += 4; // EN: old: ignore-case | RU: старый вариант: ignore-case
-        le32p(old + o, 2); o += 4; // EN: two endings | RU: два окончания
-        const char *ends[2] = {"ONE", "TWO"};
-        for (int k = 0; k < 2; k++) {
-            uint32_t l = (uint32_t)strlen(ends[k]);
-            le32p(old + o, l); o += 4; memcpy(old + o, ends[k], l); o += l;
-        }
-        le32p(old + o, 1); o += 4; // one prefix
-        le32p(old + o, 3); o += 4; memcpy(old + o, "PRE", 3); o += 3;
-        le64p(old + o, 10); o += 8;
-        le64p(old + o, 20); o += 8;
-        le64p(old + o, 20); o += 8;
-        le64p(old + o, 30); o += 8;
-        le64p(old + o, 10); o += 8;
-        le64p(old + o, 1); o += 8;
-        memcpy(old + o, k1, 32); o += 32;
-        sha256(old, o, old + o); o += 32;
-        tcheck(ckpt_parse(old, o, &in, err, sizeof err) == 0 && in.n_targets == 1 &&
-               in.targets[0].n_suffix == 2 && in.targets[0].n_prefix == 1 &&
-               (in.targets[0].flags & 4) && in.unique_hits == 1,
-               "ckpt: v4 file loads as one legacy OR target");
-        ckpt_in_free(&in);
-    }
     // EN: 6. target matching: alternatives inside a group, AND between groups
     // RU: 6. совпадение целей: альтернативы внутри группы, AND между группами
     n_targets = 0;
@@ -507,10 +650,6 @@ static void det_unit_tests(void) {
     tcheck(!target_matches(t, addr), "targets: suffix without prefix does not match");
     addr[0] = 'Q'; addr[1] = 'Q'; addr[2] = 'A'; addr[3] = 'A';
     tcheck(!target_matches(t, addr), "targets: prefix does not match the UQ/EQ form tag itself");
-    t->legacy_or = 1;
-    memset(addr, 'A', 48);
-    strcpy(addr + 2, "QQ");
-    tcheck(target_matches(t, addr), "targets: legacy OR semantics still resume old jobs");
     // EN: --match or: one group (prefix or suffix) suffices
     // RU: --match or: достаточно одной группы (префикса или окончания)
     n_targets = 0;
@@ -589,7 +728,6 @@ static void det_unit_tests(void) {
                 strlist_add(&t->suffix, s, strlen(s));
             }
             t->match_or = k % 7 == 0;
-            t->legacy_or = k == 299;
             t->ignore_case = k % 11 == 0;
             target_compile(t);
         }

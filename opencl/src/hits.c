@@ -242,7 +242,6 @@ static int run_verifier(const char *cmd_prefix, const char *phrase, char *uq, ch
 
 size_t target_desc(const Target *t, char *buf, size_t cap, size_t o) {
     const char *sep = "";
-    if (t->legacy_or) { o = sapp(buf, cap, o, "%s", tr("legacy OR checkpoint", "legacy OR из checkpoint")); sep = ", "; }
     if (t->n_pre) {
         o = sapp(buf, cap, o, "%s%s", sep, t->n_pre > 1 ? tr("prefixes", "префиксы") : tr("prefix", "префикс"));
         for (int k = 0; k < t->n_pre; k++) o = sapp(buf, cap, o, " \"%s\"", t->pre[k].str);
@@ -252,10 +251,9 @@ size_t target_desc(const Target *t, char *buf, size_t cap, size_t o) {
         o = sapp(buf, cap, o, "%s%s", sep, t->n_suf > 1 ? tr("endings", "окончания") : tr("ending", "окончание"));
         for (int k = 0; k < t->n_suf; k++) o = sapp(buf, cap, o, " \"%s\"", t->suf[k].str);
     }
-    if (!t->legacy_or)
-        o = sapp(buf, cap, o, "%s", t->match_or
-                 ? tr(" (one group suffices; OR)", " (достаточно одной группы; ИЛИ)")
-                 : tr(" (one from each group; AND)", " (по одному из каждой группы; И)"));
+    o = sapp(buf, cap, o, "%s", t->match_or
+             ? tr(" (one group suffices; OR)", " (достаточно одной группы; ИЛИ)")
+             : tr(" (one from each group; AND)", " (по одному из каждой группы; И)"));
     return o;
 }
 
@@ -308,7 +306,7 @@ static int write_hit_files(const uint8_t *matched, int ok, uint64_t cand_index, 
     if (det.enabled) {
         o = sapp(text, sizeof text, o, "candidate index: %llu\n", (unsigned long long)cand_index);
         o = sapp(text, sizeof text, o, "search key (SECRET, also opens every other candidate of this job): %s\n", keyhex);
-        o = sapp(text, sizeof text, o, "checkpoint: %s\n", det.ckpt_path);
+        o = sapp(text, sizeof text, o, "checkpoint: %s\n", det.checkpoint_path);
         if (opt.mode == TG) {
             const char *netopt = opt.testnet ? " --net testnet" : "";
             o = sapp(text, sizeof text, o,
@@ -323,7 +321,7 @@ static int write_hit_files(const uint8_t *matched, int ok, uint64_t cand_index, 
                      MODE_NAME[opt.mode], opt.testnet ? "testnet" : "mainnet", tg_subwallet(),
                      pubhex, opt.testnet ? "0Q" : "UQ", uq, opt.testnet ? "kQ" : "EQ", eq, checks,
                      netopt, keyhex, (unsigned long long)cand_index,
-                     netopt, det.ckpt_path, (unsigned long long)cand_index);
+                     netopt, det.checkpoint_path, (unsigned long long)cand_index);
             o = sapp(text, sizeof text, o,
                      tr("the 24 words are two independent BIP39-12 phrases: words 1-12 (anchor) define the address,\n"
                         "words 13-24 (signing) are the key Telegram Wallet signs with\n"
@@ -348,7 +346,7 @@ static int write_hit_files(const uint8_t *matched, int ok, uint64_t cand_index, 
                      "             or: ./gramvanity --reveal \"%s\" %llu\n",
                      MODE_NAME[opt.mode], opt.mode == TON24 ? ", TON standard" : ", BIP39, path m/44'/607'/0'",
                      pubhex, uq, eq, checks, MODE_NAME[opt.mode], keyhex,
-                     (unsigned long long)cand_index, det.ckpt_path, (unsigned long long)cand_index);
+                     (unsigned long long)cand_index, det.checkpoint_path, (unsigned long long)cand_index);
             o = sapp(text, sizeof text, o,
                      tr("the phrase is not stored here on purpose; keep this file and the checkpoint secret\n\n",
                         "фраза намеренно не хранится здесь; держите этот файл и checkpoint в секрете\n\n"));
@@ -741,9 +739,9 @@ static void write_stop_file(const char *reason) {
         else
             o = sapp(text, cap, o, tr("range end: unlimited\n", "конец диапазона: без ограничения\n"));
         o = sapp(text, cap, o, tr("checkpoint (SECRET, keep private): %s\n",
-                                  "checkpoint (СЕКРЕТ, храните приватно): %s\n"), det.ckpt_path);
+                                  "checkpoint (СЕКРЕТ, храните приватно): %s\n"), det.checkpoint_path);
         o = sapp(text, cap, o, tr("resume with: ./gramvanity --resume \"%s\"\n",
-                                  "продолжить: ./gramvanity --resume \"%s\"\n"), det.ckpt_path);
+                                  "продолжить: ./gramvanity --resume \"%s\"\n"), det.checkpoint_path);
         char keyhex[65];
         hexs(det.key, 32, keyhex);
         o = sapp(text, cap, o, tr("search key (SECRET): %s\n", "ключ поиска (СЕКРЕТ): %s\n"), keyhex);
@@ -774,10 +772,10 @@ void save_all_and_report(const char *reason, int in_handler) {
     if (in_handler) return;
     if (!opt.dump && !opt.bench) {
         printf(tr("stopped: %s\n", "остановлено: %s\n"), reason);
-        if (det.enabled && det.ckpt_path[0])
+        if (det.enabled && det.checkpoint_path[0])
             printf(tr("checkpoint saved: %s\nresume with: ./gramvanity --resume \"%s\"\n",
                       "checkpoint сохранён: %s\nпродолжить: ./gramvanity --resume \"%s\"\n"),
-                   det.ckpt_path, det.ckpt_path);
+                   det.checkpoint_path, det.checkpoint_path);
         if (g_stop_path[0])
             printf(tr("session report: %s\n", "отчёт сессии: %s\n"), g_stop_path);
     }
