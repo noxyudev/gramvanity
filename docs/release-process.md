@@ -45,8 +45,9 @@ everything else.
 versions. The two files are a language pair: change both in the same
 commit (`tools/check_i18n.py` checks the pair; CI runs it).
 
-- `## [Unreleased]` is always present at the top; changes accumulate
-  there as they land.
+- Changes since the last release accumulate under `## [Unreleased]`.
+  Add the section when the first change lands after a release, so the
+  published changelog never shows an empty heading.
 - A version section is `## [X.Y.Z] - YYYY-MM-DD`.
 - Categories inside a section: **Added**, **Changed**, **Deprecated**,
   **Removed**, **Fixed**, **Security** (in the Russian file:
@@ -54,8 +55,8 @@ commit (`tools/check_i18n.py` checks the pair; CI runs it).
   drop the empty ones. Mark backward-incompatible lines with
   `**BREAKING**` and say how to migrate.
 - Entries are written for users, not for git: what changed, not which
-  commit changed it. Compare links for all versions and for
-  `[Unreleased]` live at the end of the file.
+  commit changed it. Compare links for all released versions — and for
+  `[Unreleased]` while the section exists — live at the end of the file.
 - Must go in: user-visible behaviour, fixed bugs, removed features,
   platform and build changes, breaking changes, new configuration or
   environment variables, checkpoint and hit file format changes.
@@ -90,8 +91,8 @@ commit (`tools/check_i18n.py` checks the pair; CI runs it).
 ### Cutting the release
 
 6. In both changelogs: rename `[Unreleased]` → `[X.Y.Z] - YYYY-MM-DD`,
-   start a fresh empty `[Unreleased]` above it, refresh the compare
-   links at the bottom.
+   drop the now-empty section (it returns when the first post-release
+   change lands), refresh the compare links at the bottom.
 7. Commit both files:
    `chore(release): mark vX.Y.Z in the changelog`.
 8. Tag the release commit:
