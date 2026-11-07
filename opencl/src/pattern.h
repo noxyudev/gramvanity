@@ -119,6 +119,18 @@ int pattern_matches(const Pattern *p, const char addr[49]);
 // RU: (если окончания есть). --match or намеренно применяет старое правило checkpoint v2-v4:
 // RU: достаточно одной из двух групп.
 int target_matches(const Target *t, const char addr[49]);
+// EN: Builds the all-targets matching tables from the compiled targets. Call after targets_prepare()
+// EN: or targets_from_checkpoint(), and again whenever the target set changes.
+// RU: Строит таблицы сопоставления по всем целям из скомпилированных целей. Вызывать после
+// RU: targets_prepare() или targets_from_checkpoint() и при каждой смене набора целей.
+void targets_match_build(void);
+// EN: Matches the address against every target at once (exact bitset NFA over the anchored patterns):
+// EN: sets matched[i] = 1 for every matching target and returns 1 if at least one target matched.
+// EN: matched may be NULL when only the boolean result is needed. Requires targets_match_build().
+// RU: Сопоставляет адрес со всеми целями сразу (точный битсет-NFA по заякоренным шаблонам): ставит
+// RU: matched[i] = 1 для каждой совпавшей цели и возвращает 1, если совпала хотя бы одна цель.
+// RU: matched может быть NULL, если нужен только логический результат. Требует targets_match_build().
+int targets_match_all(const char addr[49], uint8_t *matched);
 // EN: Probability that one address matches this target.
 // RU: Вероятность того, что один адрес совпадёт с этой целью.
 double target_probability(const Target *t);

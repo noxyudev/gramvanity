@@ -422,6 +422,243 @@ int target_matches(const Target *t, const char addr[49]) {
     return pre && suf;
 }
 
+// ---------------------------------------------------------------- all-targets matcher
+
+// EN: finish() checks every candidate against every target. With hundreds of targets the per-target
+// EN: scan dominates the CPU post-phase (one target test costs a few first-character lookups and the
+// EN: target loop itself), so all patterns are folded into two exact bitset NFAs. All suffix patterns
+// EN: are anchored to the last address character (depth d counts from the end), all prefix patterns
+// EN: to the character right after the form tag (depth d counts forward). At depth d one AND with the
+// EN: table row for the actual character advances every pattern at once; a pattern of length d+1 that
+// EN: is still alive has matched completely. The result is identical to scanning every pattern,
+// EN: because every AND applies the very set[k][c] byte the per-pattern scan would read.
+// RU: finish() проверяет каждого кандидата по всем целям. При сотнях целей перебор целей доминирует
+// RU: в CPU-пост-фазе (проверка одной цели — несколько чтений первых символов и сам цикл по целям),
+// RU: поэтому все шаблоны свёрнуты в два точных битсет-NFA. Все шаблоны окончаний заякорены к
+// RU: последнему символу адреса (глубина d считается от конца), все шаблоны префиксов — к символу
+// RU: сразу после тега формы (глубина d считается вперёд). На глубине d один AND со строкой таблицы
+// RU: для фактического символа продвигает все шаблоны сразу; шаблон длины d+1, оставшийся живым,
+// RU: совпал полностью. Результат идентичен перебору каждого шаблона, потому что каждый AND применяет
+// RU: тот самый байт set[k][c], который прочитал бы перебор по шаблонам.
+
+#define MATCH_CHARS 65 // EN: 64 address-alphabet chars, index 64 = everything else | RU: 64 символа алфавита адреса, индекс 64 — всё прочее
+#define MATCH_IDS 96   // EN: per-address match list cap before the fallback scan | RU: предел списка совпадений до отката к перебору
+
+// EN: Address characters are base64url; every other byte can never occur in an address but maps to
+// EN: the catch-all index so the tables stay exact for any input byte.
+// RU: Символы адреса — base64url; любой другой байт в адресе не встречается, но отображается в
+// RU: общий индекс, чтобы таблицы оставались точными для любого входного байта.
+static uint8_t m_char_idx[256];
+
+static uint32_t m_words;               // EN: 64-bit words per pattern bitmask | RU: 64-битных слов на битмаску шаблонов
+static uint32_t m_npat;                // EN: total compiled patterns | RU: всего скомпилированных шаблонов
+static uint32_t m_suf_maxlen, m_pre_maxlen;
+static uint64_t *m_suf_tab, *m_pre_tab; // EN: [depth][char][word] | RU: [глубина][символ][слово]
+static uint64_t *m_suf_len, *m_pre_len; // EN: [len][word]: patterns of exactly this length | RU: [длина][слово]: шаблоны ровно этой длины
+static uint64_t *m_suf_all, *m_pre_all; // EN: all suffix/prefix patterns | RU: все шаблоны окончаний/префиксов
+static uint16_t *m_pat_target;          // EN: pattern id -> target index | RU: id шаблона -> индекс цели
+static uint8_t *m_pat_suf;              // EN: pattern id -> 1 = suffix group | RU: id шаблона -> 1 = группа окончаний
+static int m_check;                     // EN: GRAMVANITY_MATCHER_CHECK=1: cross-check every result | RU: сверять каждый результат
+
+static void match_char_idx_init(void) {
+    memset(m_char_idx, 64, sizeof m_char_idx);
+    int n = 0;
+    for (int c = 'A'; c <= 'Z'; c++) m_char_idx[c] = (uint8_t)n++;
+    for (int c = 'a'; c <= 'z'; c++) m_char_idx[c] = (uint8_t)n++;
+    for (int c = '0'; c <= '9'; c++) m_char_idx[c] = (uint8_t)n++;
+    m_char_idx['-'] = (uint8_t)n++;
+    m_char_idx['_'] = (uint8_t)n++;
+}
+
+// EN: Advances all patterns of one group through the address and collects fully matched pattern ids.
+// EN: from_end: depth d reads addr[47-d] (suffix group), otherwise addr[2+d] (prefix group).
+// RU: Продвигает все шаблоны одной группы по адресу и собирает id полностью совпавших шаблонов.
+// RU: from_end: глубина d читает addr[47-d] (группа окончаний), иначе addr[2+d] (группа префиксов).
+static int match_side(const uint64_t *tab, const uint64_t *lenm, const uint64_t *allm,
+                      uint32_t maxlen, const char *addr, int from_end,
+                      uint16_t *ids, int cap, int *n_ids, int *overflow) {
+    if (!maxlen) return 0;
+    uint64_t alive[m_words];
+    memcpy(alive, allm, (size_t)m_words * 8);
+    int any = 0;
+    for (uint32_t d = 0; d < maxlen; d++) {
+        uint8_t ci = m_char_idx[(unsigned char)addr[from_end ? 47 - d : 2 + d]];
+        const uint64_t *row = tab + ((size_t)d * MATCH_CHARS + ci) * m_words;
+        int nz = 0;
+        for (uint32_t w = 0; w < m_words; w++) {
+            alive[w] &= row[w];
+            nz |= alive[w] != 0;
+        }
+        if (!nz) break;
+        const uint64_t *lm = lenm + (size_t)(d + 1) * m_words;
+        for (uint32_t w = 0; w < m_words; w++) {
+            uint64_t f = alive[w] & lm[w];
+            while (f) {
+                int b = __builtin_ctzll(f);
+                f &= f - 1;
+                any = 1;
+                if (*n_ids < cap) ids[(*n_ids)++] = (uint16_t)(w * 64 + b);
+                else *overflow = 1;
+            }
+        }
+    }
+    return any;
+}
+
+void targets_match_build(void) {
+    free(m_suf_tab), free(m_pre_tab), free(m_suf_len), free(m_pre_len);
+    free(m_suf_all), free(m_pre_all), free(m_pat_target), free(m_pat_suf);
+    m_suf_tab = m_pre_tab = m_suf_len = m_pre_len = m_suf_all = m_pre_all = NULL;
+    m_pat_target = NULL;
+    m_pat_suf = NULL;
+    m_npat = 0;
+    m_suf_maxlen = m_pre_maxlen = 0;
+    static int idx_done;
+    if (!idx_done) {
+        match_char_idx_init();
+        idx_done = 1;
+        m_check = getenv("GRAMVANITY_MATCHER_CHECK") != NULL;
+    }
+    uint32_t n_pre = 0, n_suf = 0;
+    for (int i = 0; i < n_targets; i++) {
+        const Target *t = &targets[i];
+        for (int k = 0; k < t->n_pre; k++) {
+            n_pre++;
+            if ((uint32_t)t->pre[k].len > m_pre_maxlen) m_pre_maxlen = (uint32_t)t->pre[k].len;
+        }
+        for (int k = 0; k < t->n_suf; k++) {
+            n_suf++;
+            if ((uint32_t)t->suf[k].len > m_suf_maxlen) m_suf_maxlen = (uint32_t)t->suf[k].len;
+        }
+    }
+    m_npat = n_pre + n_suf;
+    if (!m_npat) {
+        m_words = 0;
+        return;
+    }
+    m_words = (m_npat + 63) / 64;
+    // EN: pattern ids: all prefixes first, then all suffixes; a pattern belongs to one target and group
+    // RU: id шаблонов: сначала все префиксы, потом все окончания; шаблон принадлежит одной цели и группе
+    m_pat_target = malloc((size_t)m_npat * sizeof *m_pat_target);
+    m_pat_suf = malloc((size_t)m_npat);
+    m_suf_len = calloc((size_t)(MAXPLEN + 1) * m_words, 8);
+    m_pre_len = calloc((size_t)(MAXPLEN + 1) * m_words, 8);
+    m_suf_all = calloc((size_t)m_words, 8);
+    m_pre_all = calloc((size_t)m_words, 8);
+    m_suf_tab = calloc((size_t)m_suf_maxlen * MATCH_CHARS * m_words, 8);
+    m_pre_tab = calloc((size_t)m_pre_maxlen * MATCH_CHARS * m_words, 8);
+    if (!m_pat_target || !m_pat_suf || !m_suf_len || !m_pre_len || !m_suf_all || !m_pre_all ||
+        !m_suf_tab || !m_pre_tab)
+        die(tr("out of memory", "не хватает памяти"));
+    for (uint32_t g = 0; g < n_pre; g++) m_pre_all[g >> 6] |= 1ull << (g & 63);
+    for (uint32_t g = n_pre; g < m_npat; g++) m_suf_all[g >> 6] |= 1ull << (g & 63);
+    uint32_t g = 0;
+    for (int pass = 0; pass < 2; pass++) {
+        int is_suf = pass;
+        for (int i = 0; i < n_targets; i++) {
+            const Target *t = &targets[i];
+            int n = is_suf ? t->n_suf : t->n_pre;
+            const Pattern *pats = is_suf ? t->suf : t->pre;
+            for (int k = 0; k < n; k++, g++) {
+                const Pattern *p = &pats[k];
+                m_pat_target[g] = (uint16_t)i;
+                m_pat_suf[g] = (uint8_t)is_suf;
+                uint64_t *lenm = is_suf ? m_suf_len : m_pre_len;
+                lenm[(size_t)p->len * m_words + (g >> 6)] |= 1ull << (g & 63);
+                for (int j = 0; j < p->len; j++) {
+                    // EN: depth d of a suffix pattern reads set[len-1-d] (from the end); a prefix
+                    // EN: pattern reads set[d] (from the start)
+                    // RU: глубина d шаблона окончания читает set[len-1-d] (от конца); шаблон префикса
+                    // RU: читает set[d] (от начала)
+                    int si = is_suf ? p->len - 1 - j : j;
+                    uint64_t *tab = is_suf ? m_suf_tab : m_pre_tab;
+                    uint64_t *base = tab + (size_t)j * MATCH_CHARS * m_words;
+                    for (int c = 0; c < 256; c++) {
+                        if (!p->set[si][c]) continue;
+                        uint64_t *cell = base + (size_t)m_char_idx[c] * m_words + (g >> 6);
+                        *cell |= 1ull << (g & 63);
+                    }
+                }
+            }
+        }
+    }
+}
+
+int targets_match_all(const char addr[49], uint8_t *matched) {
+    if (!m_npat) { // EN: not built (or no targets): exact but slow per-target scan | RU: не построено (или целей нет): точный, но медленный перебор целей
+        int any = 0;
+        for (int i = 0; i < n_targets; i++)
+            if (target_matches(&targets[i], addr)) {
+                if (matched) matched[i] = 1;
+                any = 1;
+            }
+        return any;
+    }
+    uint16_t ids[MATCH_IDS];
+    int n_ids = 0, overflow = 0;
+    int full = match_side(m_suf_tab, m_suf_len, m_suf_all, m_suf_maxlen, addr, 1, ids, MATCH_IDS, &n_ids, &overflow);
+    full |= match_side(m_pre_tab, m_pre_len, m_pre_all, m_pre_maxlen, addr, 0, ids, MATCH_IDS, &n_ids, &overflow);
+    if (overflow) {
+        // EN: pathologically many patterns matched one address: rerun the per-target scan
+        // RU: аномально много шаблонов совпало с одним адресом: повторяем перебор целей
+        int any = 0;
+        for (int i = 0; i < n_targets; i++)
+            if (target_matches(&targets[i], addr)) {
+                if (matched) matched[i] = 1;
+                any = 1;
+            }
+        return any;
+    }
+    if (!full) return 0;
+    // EN: rare path: map matched patterns back to targets and apply the per-target group rule. A target
+    // EN: counts only when its own AND/OR combination is satisfied, exactly like target_matches().
+    // RU: редкий путь: возвращаем совпавшие шаблоны к целям и применяем правило групп. Цель засчитывается
+    // RU: только при выполнении её комбинации AND/OR — ровно как в target_matches().
+    uint16_t ut[MATCH_IDS];
+    uint8_t uf[MATCH_IDS]; // EN: bit 0 = a prefix matched, bit 1 = a suffix matched | RU: бит 0 = совпал префикс, бит 1 = совпало окончание
+    int nu = 0;
+    for (int j = 0; j < n_ids; j++) {
+        uint16_t tg = m_pat_target[ids[j]];
+        int u = -1;
+        for (int q = 0; q < nu; q++)
+            if (ut[q] == tg) { u = q; break; }
+        if (u < 0) {
+            u = nu++;
+            ut[u] = tg;
+            uf[u] = 0;
+        }
+        uf[u] |= m_pat_suf[ids[j]] ? 2 : 1;
+    }
+    int any = 0;
+    for (int q = 0; q < nu; q++) {
+        const Target *t = &targets[ut[q]];
+        int pre_hit = uf[q] & 1, suf_hit = uf[q] & 2;
+        int m;
+        if (t->legacy_or || t->match_or)
+            m = (t->n_pre != 0 && pre_hit) || (t->n_suf != 0 && suf_hit);
+        else
+            m = (t->n_pre == 0 || pre_hit) && (t->n_suf == 0 || suf_hit);
+        if (!m) continue;
+        if (matched) matched[ut[q]] = 1;
+        any = 1;
+    }
+    if (m_check) { // EN: GRAMVANITY_MATCHER_CHECK=1: die on any divergence from the per-target scan
+                   // RU: GRAMVANITY_MATCHER_CHECK=1: аварийно останавливаться при любом расхождении с перебором целей
+        uint8_t ref[n_targets];
+        memset(ref, 0, (size_t)n_targets);
+        int any2 = 0;
+        for (int i = 0; i < n_targets; i++)
+            if (target_matches(&targets[i], addr)) {
+                ref[i] = 1;
+                any2 = 1;
+            }
+        if (any2 != any || (matched && memcmp(ref, matched, (size_t)n_targets)))
+            die(tr("internal error: fast target matcher diverged from the scan (address %.48s)",
+                   "внутренняя ошибка: быстрый матчер целей разошёлся с перебором (адрес %.48s)"), addr);
+    }
+    return any;
+}
+
 // EN: Expected number of phrases until a hit on one pattern alone.
 // RU: Ожидаемое число фраз до хита по одному шаблону.
 static double expected_pattern(const Pattern *p) {

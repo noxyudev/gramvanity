@@ -567,6 +567,55 @@ static void det_unit_tests(void) {
     memset(addr, 'A', 48);
     addr[2] = 'A'; addr[3] = 'B';
     tcheck(target_matches(t, addr), "targets: ignore-case applies to the target patterns");
+    // EN: the all-targets bitset matcher must agree with the per-target scan on every address: a fixed
+    // EN: LCG generates addresses over the full base64url alphabet against hundreds of mixed targets
+    // RU: битсет-матчер всех целей обязан совпадать с перебором целей на каждом адресе: фиксированный
+    // RU: LCG генерирует адреса по всему алфавиту base64url против сотен смешанных целей
+    {
+        static const char *const PRE[] = {"QQ", "U[0-9]", "_[Pp]a", "AB[C-F]", "Z"};
+        static const char *const SUF[] = {"ZZZZZ", "[0-9]", "_[Pp]auper", "7", "[a-m][n-z]A", "TELEGRAM", "_PASHA"};
+        static const char ALPHA[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+        for (int k = 0; k < 300; k++) {
+            Target *t = new_target();
+            snprintf(t->name, sizeof t->name, "M%d", k);
+            if (k % 3 != 2 || k % 4 == 3) { // EN: keep at least one pattern per target | RU: у каждой цели остаётся хотя бы один шаблон
+                t->has_prefix = 1;
+                const char *s = PRE[k % 5];
+                strlist_add(&t->prefix, s, strlen(s));
+            }
+            if (k % 4 != 3) {
+                t->has_suffix = 1;
+                const char *s = SUF[k % 7];
+                strlist_add(&t->suffix, s, strlen(s));
+            }
+            t->match_or = k % 7 == 0;
+            t->legacy_or = k == 299;
+            t->ignore_case = k % 11 == 0;
+            target_compile(t);
+        }
+        targets_match_build();
+        uint64_t rng = 0x9E3779B97F4A7C15ull;
+        int mism = 0;
+        uint8_t m1[300], m2[300];
+        for (int it = 0; it < 8000 && !mism; it++) {
+            char a[49];
+            for (int j = 0; j < 48; j++) {
+                rng = rng * 6364136223846793005ull + 1442695040888963407ull;
+                a[j] = ALPHA[(rng >> 56) & 63];
+            }
+            a[48] = 0;
+            memset(m1, 0, sizeof m1);
+            int any1 = targets_match_all(a, m1);
+            memset(m2, 0, sizeof m2);
+            int any2 = 0;
+            for (int i = 0; i < n_targets; i++)
+                if (target_matches(&targets[i], a)) { m2[i] = 1; any2 = 1; }
+            if (any1 != any2 || memcmp(m1, m2, sizeof m1)) mism = 1;
+        }
+        tcheck(!mism, "matcher: bitset NFA agrees with the per-target scan on 8000 addresses x 300 targets");
+        n_targets = 0;
+        targets_match_build();
+    }
     // EN: 7. target names: unnamed targets become t1, t2, ...; duplicates get a numeric suffix
     // RU: 7. имена целей: безымянные становятся t1, t2, ...; дубликаты получают числовой суффикс
     n_targets = 0;

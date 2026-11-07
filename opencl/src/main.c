@@ -525,6 +525,11 @@ static void setup_search(int real_search) {
             else if (real_search) snprintf(det.ckpt_path, sizeof det.ckpt_path, "%s%cjob.ckpt", job_dir, PATH_SEP);
         }
     }
+    // EN: targets are final here (parsed, or restored from the checkpoint): build the fast all-targets
+    // EN: matching tables used by finish()
+    // RU: цели здесь окончательны (разобраны или восстановлены из checkpoint): строим быстрые таблицы
+    // RU: сопоставления по всем целям для finish()
+    targets_match_build();
 
     if (opt.testnet && opt.mode != TG)
         die(tr("--net testnet is only supported for --mode tg-wallet",

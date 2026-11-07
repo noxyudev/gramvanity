@@ -605,9 +605,7 @@ void finish(const int *idx, int nw, const uint8_t priv[32], const uint8_t pub_gp
     if (n_targets) {
         uint8_t matched[n_targets];
         memset(matched, 0, (size_t)n_targets);
-        int any = 0;
-        for (int i = 0; i < n_targets; i++)
-            if (target_matches(&targets[i], addr)) { matched[i] = 1; any = 1; }
+        int any = targets_match_all(addr, matched);
         if (any) handle_hit(idx, nw, priv, pub, matched, cand_index, addr);
     }
 }

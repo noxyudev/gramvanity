@@ -6,6 +6,15 @@ All notable changes to gramvanity are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Address matching in `finish()` folds all targets into two exact bitset NFAs (prefixes anchored
+  after the form tag, suffixes to the last character) instead of scanning targets one by one; the
+  results are identical, and the CPU post-phase is faster with many targets.
+  `GRAMVANITY_MATCHER_CHECK=1` cross-checks the fast matcher against the per-target scan.
+
 ## [1.0.1] - 2026-11-06
 
 ### Documentation
@@ -55,3 +64,5 @@ wallet derives on import. The global changes relative to the original project:
   (~50 CPU assertions).
 - CI on GitHub Actions (Linux + Windows) and tag-driven releases with ready archives.
 - Bilingual documentation (English/Russian) and runtime localization `--lang en|ru`.
+
+[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.0.1...HEAD
