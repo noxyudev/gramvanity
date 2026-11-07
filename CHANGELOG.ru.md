@@ -6,7 +6,10 @@
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/); версии — по
 [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [1.1.0] - 2026-11-08
+
+Файл checkpoint становится пригодным для ручного редактирования UTF-8-текстом:
+правьте его в любом редакторе и переподписывайте через `--checkpoint-fix`.
 
 ### Изменено
 
@@ -93,5 +96,6 @@
 - CI на GitHub Actions (Linux + Windows) и релизы по тегу с готовыми архивами.
 - Двуязычная документация (английский/русский) и локализация `--lang en|ru`.
 
-[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/noxyudev/gramvanity/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/noxyudev/gramvanity/compare/v1.0.1...v1.0.2

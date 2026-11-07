@@ -6,7 +6,10 @@ All notable changes to gramvanity are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [1.1.0] - 2026-11-08
+
+The checkpoint file becomes a hand-editable UTF-8 text format: edit it in any
+editor and re-sign it with `--checkpoint-fix`.
 
 ### Changed
 
@@ -91,5 +94,6 @@ wallet derives on import. The global changes relative to the original project:
 - CI on GitHub Actions (Linux + Windows) and tag-driven releases with ready archives.
 - Bilingual documentation (English/Russian) and runtime localization `--lang en|ru`.
 
-[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/noxyudev/gramvanity/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/noxyudev/gramvanity/compare/v1.0.1...v1.0.2
