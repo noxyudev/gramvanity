@@ -8,6 +8,13 @@ versions follow [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- The release process guide (`docs/release-process.md` / `docs/release-process.ru.md`):
+  versioning, commit and changelog rules, the release checklist, what the `release` workflow
+  does, the release notes template and the known limitations; checked as a language pair by
+  `tools/check_i18n.py`.
+
 ### Changed
 
 - Address matching in `finish()` folds all targets into two exact bitset NFAs (prefixes anchored

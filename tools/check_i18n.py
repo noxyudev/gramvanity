@@ -15,6 +15,7 @@ PAIRS = [
     ("opencl/AGENTS.md", "opencl/AGENTS.ru.md"),
     ("docs/architecture.md", "docs/architecture.ru.md"),
     ("docs/tg-wallet.md", "docs/tg-wallet.ru.md"),
+    ("docs/release-process.md", "docs/release-process.ru.md"),
     ("CHANGELOG.md", "CHANGELOG.ru.md"),
 ]
 
