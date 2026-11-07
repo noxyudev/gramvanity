@@ -158,7 +158,7 @@ candidate; the key lives only in the checkpoint (owner-only file).
 
 - `make -C opencl` — clean build, no new warnings (gcc -Wall -Wextra).
 - `opencl/gramvanity --selftest-det` — all unit assertions pass (also in CI, no GPU needed).
-- `sh opencl/tests/test_det.sh` — the 20-scenario GPU integration suite (113 checks; it pins
+- `sh opencl/tests/test_det.sh` — the 19-scenario GPU integration suite (121 checks; it pins
   `GRAMVANITY_LANG=en` because its assertions match English output).
 - `python3 tools/check_i18n.py` — every `.md` pair exists and links to its translation (CI).
 - Golden runs: deterministic-range scenarios produce identical `--checkpoint-info` output before and after
