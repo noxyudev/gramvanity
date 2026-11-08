@@ -104,6 +104,29 @@ fi
 "$BIN" --checkpoint-info "$CK" | grep -q "mode bip39-24" \
     && ok "bip39-24 survives the checkpoint" || bad "bip39-24 survives the checkpoint"
 
+echo "== T2c: a run from a foreign working directory still finds the verifier =="
+# EN: exe_dir must resolve the binary's own directory, not the caller's CWD: launched outside
+# EN: opencl/, root_dir used to collapse to "..", the verifier became ../verify-go relative to
+# EN: that directory and reported "not runnable".
+# RU: exe_dir обязан определять каталог самого бинарника, а не CWD вызывающего: при запуске вне
+# EN: opencl/ root_dir схлопывался в "..", верификатор становился ../verify-go относительно него
+# RU: и сообщал "not runnable".
+ABS_BIN="$(pwd)/$BIN"
+T2C_OUT="$TMP/t2c-out"; rm -rf "$T2C_OUT"
+( cd "$TMP" && "$ABS_BIN" --mode bip39-12 --suffix '[0-9A-Za-z_-]' --count 1 --tries 200000000 \
+      $NOVERIFY --out "$T2C_OUT" > "$TMP/t2c.log" 2>&1 )
+if [ -n "$(ls "$T2C_OUT" 2>/dev/null | grep '^hit-')" ]; then
+    if [ "$HAVE_GO" = 1 ]; then
+        grep -q "tonutils-go OK" "$T2C_OUT"/hit-*.txt \
+            && ok "the verifier ran from a foreign working directory" \
+            || bad "the verifier ran from a foreign working directory"
+    else
+        ok "a hit was produced from a foreign working directory (verifier absent)"
+    fi
+else
+    bad "a run from a foreign working directory produced a hit file"
+fi
+
 echo "== T3: corrupted / conflicting checkpoints =="
 CK="$TMP/t3.checkpoint"; OUT="$TMP/t3-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --suffix ZZZZZZ --start-offset 0 --tries 100000 --stop-after 40000 \
