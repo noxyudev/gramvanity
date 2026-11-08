@@ -275,7 +275,7 @@ elif grep -Eqi 'undefined reference to.*BCryptGenRandom' "$BUILD_LOG"; then
 
     make -C "$OPENCL_DIR" clean
 
-    if make -C "$OPENCL_DIR" LIBS="-lOpenCL -lbcrypt -static-libgcc" 2>&1 | tee "$BUILD_LOG"; then
+    if make -C "$OPENCL_DIR" LIBS="-lOpenCL -lbcrypt -ladvapi32 -static-libgcc" 2>&1 | tee "$BUILD_LOG"; then
         say "OpenCL build with bcrypt: OK" "Сборка OpenCL с bcrypt: OK"
     else
         fail "The second OpenCL build failed." "Повторная сборка OpenCL завершилась ошибкой."
