@@ -1156,7 +1156,7 @@ static int load_impl(const char *path, struct Checkpoint *in, int relaxed, char 
     // RU: версии 1.0.x писали бинарный формат с magic "SVANCKP". Называем его отдельно, а не
     // RU: общей ошибкой про чужой файл: ситуация узнаваема и совет другой (начните новое
     // RU: задание - старые файлы в 1.1+ не читаются).
-    if (len >= 8 && !memcmp(data, "SVANCKP ", 8)) {
+    if (len >= 8 && !memcmp(data, "SVANCKP\0", 8)) {
         snprintf(err, errn, "%s",
                  tr("this checkpoint is from gramvanity 1.0.x (binary format); "
                     "1.1+ loads only the text format - start a new job",
