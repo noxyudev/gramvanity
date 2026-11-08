@@ -700,12 +700,14 @@ static int flush_target(PState *ps, uint32_t lineno, char *err, size_t errn) {
     if (ct->n_suffix) {
         ct->suf_hits = calloc(ct->n_suffix, sizeof *ct->suf_hits);
         if (!ct->suf_hits) return perr(err, errn, "out of memory", "не хватает памяти");
-        memcpy(ct->suf_hits, tb->suf_hits, (size_t)tb->n_suf_hits * sizeof *ct->suf_hits);
+        if (tb->n_suf_hits) // EN: tb->suf_hits is NULL when no hits lines were given | RU: tb->suf_hits пуст, когда строк хитов не было
+            memcpy(ct->suf_hits, tb->suf_hits, (size_t)tb->n_suf_hits * sizeof *ct->suf_hits);
     }
     if (ct->n_prefix) {
         ct->pre_hits = calloc(ct->n_prefix, sizeof *ct->pre_hits);
         if (!ct->pre_hits) return perr(err, errn, "out of memory", "не хватает памяти");
-        memcpy(ct->pre_hits, tb->pre_hits, (size_t)tb->n_pre_hits * sizeof *ct->pre_hits);
+        if (tb->n_pre_hits) // EN: tb->pre_hits is NULL when no hits lines were given | RU: tb->pre_hits пуст, когда строк хитов не было
+            memcpy(ct->pre_hits, tb->pre_hits, (size_t)tb->n_pre_hits * sizeof *ct->pre_hits);
     }
     free(tb->name);
     free(tb->label);
