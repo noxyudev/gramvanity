@@ -30,6 +30,10 @@ jobs:
         if: runner.os == 'Linux'
         run: python3 tools/check_i18n.py
 
+      - name: Check tr() printf specifier parity
+        if: runner.os == 'Linux'
+        run: python3 tools/check_tr.py
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
