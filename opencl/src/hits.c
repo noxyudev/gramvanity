@@ -603,10 +603,19 @@ void finish(const int *idx, int nw, const uint8_t priv[32], const uint8_t pub_gp
         return;
     }
     if (n_targets) {
-        uint8_t matched[n_targets];
+        // EN: a fixed buffer keeps the per-candidate path allocation-free; the heap covers
+        // EN: absurd target counts instead of an unbounded stack frame (VLA is optional in C11).
+        // RU: фиксированный буфер держит покандидатный путь без выделений; куча покрывает
+        // RU: абсурдные числа целей вместо неограниченного кадра стека (VLA опциональны в C11).
+        uint8_t stack_matched[256];
+        uint8_t *matched = n_targets <= (int)sizeof stack_matched
+                               ? stack_matched
+                               : malloc((size_t)n_targets);
+        if (!matched) die(tr("out of memory", "не хватает памяти"));
         memset(matched, 0, (size_t)n_targets);
         int any = targets_match_all(addr, matched);
         if (any) handle_hit(idx, nw, priv, pub, matched, cand_index, addr);
+        if (matched != stack_matched) free(matched);
     }
 }
 

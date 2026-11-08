@@ -478,7 +478,13 @@ static int match_side(const uint64_t *tab, const uint64_t *lenm, const uint64_t 
                       uint32_t maxlen, const char *addr, int from_end,
                       uint32_t *ids, int cap, int *n_ids, int *overflow) {
     if (!maxlen) return 0;
-    uint64_t alive[m_words];
+    // EN: a fixed buffer covers up to 4096 patterns (m_words <= 64); the heap handles anything
+    // EN: beyond, so the hot per-candidate path stays allocation-free in realistic setups.
+    // RU: фиксированный буфер покрывает до 4096 шаблонов (m_words <= 64); сверх этого куча,
+    // RU: поэтому горячий покандидатный путь остаётся без выделений в реалистичных конфигурациях.
+    uint64_t stack_alive[64];
+    uint64_t *alive = m_words <= 64 ? stack_alive : malloc((size_t)m_words * 8);
+    if (!alive) die(tr("out of memory", "не хватает памяти"));
     memcpy(alive, allm, (size_t)m_words * 8);
     int any = 0;
     for (uint32_t d = 0; d < maxlen; d++) {
@@ -502,6 +508,7 @@ static int match_side(const uint64_t *tab, const uint64_t *lenm, const uint64_t 
             }
         }
     }
+    if (alive != stack_alive) free(alive);
     return any;
 }
 
@@ -648,7 +655,10 @@ int targets_match_all(const char addr[49], uint8_t *matched) {
     }
     if (m_check) { // EN: GRAMVANITY_MATCHER_CHECK=1: die on any divergence from the per-target scan
                    // RU: GRAMVANITY_MATCHER_CHECK=1: аварийно останавливаться при любом расхождении с перебором целей
-        uint8_t ref[n_targets];
+        // EN: cold debug path: plain heap allocation, no stack-size dependency (no VLA).
+        // RU: холодный отладочный путь: обычное выделение из кучи, без зависимости от размера стека (без VLA).
+        uint8_t *ref = malloc((size_t)n_targets);
+        if (!ref) die(tr("out of memory", "не хватает памяти"));
         memset(ref, 0, (size_t)n_targets);
         int any2 = 0;
         for (int i = 0; i < n_targets; i++)
@@ -659,6 +669,7 @@ int targets_match_all(const char addr[49], uint8_t *matched) {
         if (any2 != any || (matched && memcmp(ref, matched, (size_t)n_targets)))
             die(tr("internal error: fast target matcher diverged from the scan (address %.48s)",
                    "внутренняя ошибка: быстрый матчер целей разошёлся с перебором (адрес %.48s)"), addr);
+        free(ref);
     }
     return any;
 }
