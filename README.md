@@ -413,6 +413,41 @@ Do not edit the `key` line: the search key is what makes every index reproducibl
 key silently turns all further hits into unrecoverable ones. The `checksum` line is recomputed by
 `--checkpoint-fix`.
 
+## Consolidating jobs (`--checkpoint-merge`)
+
+Several finished or stopped jobs can be rebuilt into one new checkpoint that contains only the
+targets that have not reached their `--count` yet:
+
+```sh
+# merge two job folders into a new job folder (default: results/job-<UTC timestamp>)
+./gramvanity --checkpoint-merge --in ../results/job-20261101-090000 --in ../results/job-20261104-174407
+
+# or name the inputs and the output folder explicitly
+./gramvanity --checkpoint-merge --in ../results/job-A/job.checkpoint --in ../results/job-B/job.checkpoint --out ../results/merged
+```
+
+`--in` takes a checkpoint file or a job folder (its `job.checkpoint`); repeat it for every input.
+The merged file is written as `job.checkpoint` in a new job folder: `--out DIR` uses that folder
+exactly as given, otherwise a fresh `results/job-<UTC timestamp>` is created.
+
+What the merge keeps and what it changes:
+
+- targets that already reached their `--count` are **dropped**; unlimited and unfinished targets
+  carry over with their `hits` and per-pattern counters, so `count - hits` stays the remaining
+  work. The earlier hits of every target stay recoverable only from its original checkpoint
+  (`--reveal` there, not in the merged file);
+- the same target (same name and the same patterns) in several inputs combines into one by taking
+  the per-field maximum; a name reused with different patterns gets a `-2`, `-3...` suffix;
+- the merged job is a **new job**: a fresh search key, the position restarts from index 0 and the
+  job counters are zeroed — candidates are derived from the key, and nothing has been searched
+  under the new key yet;
+- the merged file stores no `job_dir`: on `--resume` its own folder is the job folder, so new hits
+  land next to the merged checkpoint. To place it elsewhere, add a `job_dir` line by hand and run
+  `--checkpoint-fix`.
+
+All inputs must share the mode and the wallet form/network. The merge never overwrites an existing
+output file.
+
 ## Staying safe
 
 - The seed phrase is written **only** to hit files (or a `--dump` file you ask for), never to the

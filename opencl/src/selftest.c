@@ -238,6 +238,22 @@ static void test_edit_line(const char *path, const char *prefix, const char *rep
     fclose(wf);
 }
 
+// EN: test helper: write a hand-built checkpoint body with a valid trailing checksum (the minimal
+// EN: input files of the --checkpoint-merge tests)
+// RU: тестовый помощник: записывает собранное вручную тело checkpoint с корректной итоговой
+// RU: контрольной суммой (минимальные входные файлы тестов --checkpoint-merge)
+static void test_write_cp(const char *path, const char *body, size_t body_len) {
+    uint8_t d[32];
+    char sumhex[65];
+    sha256((const uint8_t *)body, body_len, d);
+    hexs(d, 32, sumhex);
+    FILE *f = fopen(path, "wb");
+    if (!f) return;
+    fwrite(body, 1, body_len, f);
+    fprintf(f, "checksum = %s\n", sumhex);
+    fclose(f);
+}
+
 static void det_unit_tests(void) {
     // EN: 1. determinism: key+index -> same entropy every time, different key/index -> different
     // RU: 1. детерминизм: ключ+индекс -> одна и та же энтропия, другой ключ/индекс -> другая
@@ -613,6 +629,211 @@ static void det_unit_tests(void) {
            "checkpoint: 300 targets survive the roundtrip");
     checkpoint_free(&in);
     remove(path);
+    // EN: 5c. --checkpoint-merge: done targets dropped, same targets combine by max, a reused name
+    // EN: with other patterns is renamed; the output is a new job (fresh key, position from zero,
+    // EN: no job_dir and no per-target out lines)
+    // RU: 5c. --checkpoint-merge: выполненные цели отбрасываются, одинаковые цели склеиваются по
+    // RU: максимуму, повторное имя с другими шаблонами переименовывается; результат — новое задание
+    // RU: (свежий ключ, позиция с нуля, без job_dir и без строк out у целей)
+    {
+        char keyhex1[65], keyhex2[65];
+        hexs(k1, 32, keyhex1);
+        hexs(k2, 32, keyhex2);
+        char body[4096];
+        char pa[4096], pb[4096], pc[4096], pd[4096], pe[4096], outp[4096], out2[4096], out3[4096];
+        snprintf(pa, sizeof pa, "%s%cmerge-a.checkpoint", job_dir, PATH_SEP);
+        snprintf(pb, sizeof pb, "%s%cmerge-b.checkpoint", job_dir, PATH_SEP);
+        snprintf(pc, sizeof pc, "%s%cmerge-c.checkpoint", job_dir, PATH_SEP);
+        snprintf(pd, sizeof pd, "%s%cmerge-d.checkpoint", job_dir, PATH_SEP);
+        snprintf(pe, sizeof pe, "%s%cmerge-e.checkpoint", job_dir, PATH_SEP);
+        snprintf(outp, sizeof outp, "%s%cmerge-out.checkpoint", job_dir, PATH_SEP);
+        snprintf(out2, sizeof out2, "%s%cmerge-out2.checkpoint", job_dir, PATH_SEP);
+        snprintf(out3, sizeof out3, "%s%cmerge-out3.checkpoint", job_dir, PATH_SEP);
+        // EN: A: t1 done (hits >= count), t2 partial, t3 unlimited, t4 partial --all-patterns,
+        // EN: t5 done --all-patterns | RU: A: t1 выполнена, t2 частичная, t3 без лимита,
+        // EN: t4 частичная --all-patterns, t5 выполненная --all-patterns
+        size_t bl = (size_t)snprintf(body, sizeof body,
+                                     "format = gramvanity-checkpoint\n"
+                                     "version = 1\n"
+                                     "mode = bip39-12\n"
+                                     "next = 100\n"
+                                     "key = %s\n"
+                                     "[target]\n"
+                                     "name = t1\n"
+                                     "count = 1\n"
+                                     "hits = 1\n"
+                                     "suffix = AAA\n"
+                                     "suffix_hits = 1\n"
+                                     "[target]\n"
+                                     "name = t2\n"
+                                     "count = 5\n"
+                                     "hits = 2\n"
+                                     "suffix = BBB\n"
+                                     "suffix_hits = 2\n"
+                                     "[target]\n"
+                                     "name = t3\n"
+                                     "prefix = MOON\n"
+                                     "[target]\n"
+                                     "name = t4\n"
+                                     "count = 2\n"
+                                     "hits = 3\n"
+                                     "all_patterns = yes\n"
+                                     "suffix = XXX\n"
+                                     "suffix_hits = 2\n"
+                                     "suffix = YYY\n"
+                                     "suffix_hits = 1\n"
+                                     "[target]\n"
+                                     "name = t5\n"
+                                     "count = 1\n"
+                                     "hits = 1\n"
+                                     "all_patterns = yes\n"
+                                     "suffix = ZZZ\n"
+                                     "suffix_hits = 1\n",
+                                     keyhex1);
+        test_write_cp(pa, body, bl);
+        // EN: B: the same t2 (combines by max), the same t3 (combines), a second t2 with other
+        // EN: patterns (renamed) | RU: B: та же t2 (склеится по максимуму), тот же t3 (склеится),
+        // EN: вторая t2 с другими шаблонами (получит новое имя)
+        bl = (size_t)snprintf(body, sizeof body,
+                              "format = gramvanity-checkpoint\n"
+                              "version = 1\n"
+                              "mode = bip39-12\n"
+                              "next = 200\n"
+                              "key = %s\n"
+                              "[target]\n"
+                              "name = t2\n"
+                              "count = 3\n"
+                              "suffix = BBB\n"
+                              "[target]\n"
+                              "name = t2\n"
+                              "suffix = CCC\n"
+                              "[target]\n"
+                              "name = t3\n"
+                              "prefix = MOON\n",
+                              keyhex2);
+        test_write_cp(pb, body, bl);
+        // EN: C: a mode mismatch must fail the merge | RU: C: несовпадение режима ломает слияние
+        bl = (size_t)snprintf(body, sizeof body,
+                              "format = gramvanity-checkpoint\n"
+                              "version = 1\n"
+                              "mode = bip39-24\n"
+                              "next = 5\n"
+                              "key = %s\n"
+                              "[target]\n"
+                              "name = x\n"
+                              "suffix = QQQ\n",
+                              keyhex1);
+        test_write_cp(pc, body, bl);
+        // EN: D: every target done -> nothing to merge | RU: D: все цели выполнены -> нечего собирать
+        bl = (size_t)snprintf(body, sizeof body,
+                              "format = gramvanity-checkpoint\n"
+                              "version = 1\n"
+                              "mode = bip39-12\n"
+                              "next = 5\n"
+                              "key = %s\n"
+                              "[target]\n"
+                              "name = done1\n"
+                              "count = 2\n"
+                              "hits = 2\n"
+                              "suffix = QQQ\n"
+                              "suffix_hits = 2\n",
+                              keyhex2);
+        test_write_cp(pd, body, bl);
+
+        struct Checkpoint mo;
+        int dropped = 0, renamed = 0;
+        const char *ins2[2] = {pa, pb};
+        tcheck(checkpoint_merge(ins2, 2, outp, &mo, &dropped, &renamed, err, sizeof err) == 0,
+               "checkpoint-merge: two checkpoints merged");
+        tcheck(mo.n_targets == 4 && dropped == 2 && renamed == 1,
+               "checkpoint-merge: done dropped, duplicate combined, collision renamed");
+        checkpoint_free(&mo);
+        struct Checkpoint rl;
+        tcheck(checkpoint_load(outp, &rl, err, sizeof err) == 0 && rl.n_targets == 4 && rl.mode == BIP12,
+               "checkpoint-merge: output reloads with a valid checksum");
+        tcheck(!strcmp(rl.targets[0].name, "t2") && (rl.targets[0].flags & 2) &&
+               rl.targets[0].count == 5 && rl.targets[0].hits == 2 &&
+               rl.targets[0].n_suffix == 1 && !strcmp(rl.targets[0].suffix[0], "BBB") &&
+               rl.targets[0].suf_hits && rl.targets[0].suf_hits[0] == 2,
+               "checkpoint-merge: the same target combines by max (unlimited would win)");
+        tcheck(!strcmp(rl.targets[1].name, "t3") && !(rl.targets[1].flags & 2) &&
+               rl.targets[1].n_prefix == 1 && !strcmp(rl.targets[1].prefix[0], "MOON"),
+               "checkpoint-merge: an unlimited target is kept");
+        tcheck(!strcmp(rl.targets[2].name, "t4") && (rl.targets[2].flags & 8) &&
+               rl.targets[2].count == 2 && rl.targets[2].n_suffix == 2 &&
+               rl.targets[2].suf_hits[0] == 2 && rl.targets[2].suf_hits[1] == 1,
+               "checkpoint-merge: a partial --all-patterns target keeps its per-pattern hits");
+        tcheck(!strcmp(rl.targets[3].name, "t2-2") && rl.targets[3].n_suffix == 1 &&
+               !strcmp(rl.targets[3].suffix[0], "CCC"),
+               "checkpoint-merge: a reused name with other patterns is renamed");
+        tcheck(rl.start == 0 && rl.next == 0 && rl.s1_next == 0 && rl.end == 0 && rl.done == 0 &&
+               rl.unique_hits == 0 && rl.verified == 0,
+               "checkpoint-merge: position and job counters restart from zero");
+        tcheck(memcmp(rl.key, k1, 32) != 0 && memcmp(rl.key, k2, 32) != 0,
+               "checkpoint-merge: the output gets a fresh search key");
+        int clean = rl.job_dir[0] == 0;
+        for (uint32_t k = 0; k < rl.n_targets; k++) clean = clean && rl.targets[k].out[0] == 0;
+        tcheck(clean, "checkpoint-merge: job_dir and per-target out lines are omitted");
+        checkpoint_free(&rl);
+        const char *badmode[2] = {pa, pc};
+        tcheck(checkpoint_merge(badmode, 2, out2, &mo, &dropped, &renamed, err, sizeof err) == -1,
+               "checkpoint-merge: a mode mismatch is rejected");
+        const char *again2[2] = {pa, pb};
+        tcheck(checkpoint_merge(again2, 2, outp, &mo, &dropped, &renamed, err, sizeof err) == -1,
+               "checkpoint-merge: an existing output file is refused");
+        const char *alldone[1] = {pd};
+        tcheck(checkpoint_merge(alldone, 1, out2, &mo, &dropped, &renamed, err, sizeof err) == -1,
+               "checkpoint-merge: an all-done input is refused");
+        const char *single[1] = {pb};
+        tcheck(checkpoint_merge(single, 1, out2, &mo, &dropped, &renamed, err, sizeof err) == 0 &&
+               mo.n_targets == 3 && !strcmp(mo.targets[2].name, "t3"),
+               "checkpoint-merge: a single input merges too");
+        checkpoint_free(&mo);
+        // EN: regression: a name of 62+ characters used to make the -2, -3... renaming truncate the
+        // EN: candidate back to the original name, always look taken, and loop forever; the base is
+        // EN: truncated instead now
+        // RU: регрессия: имя из 62+ символов раньше заставляло переименование -2, -3... обрезать
+        // RU: кандидата обратно в исходное имя, всегда считать его занятым и зациклиться; теперь
+        // RU: обрезается база
+        char longname[MAX_TARGET_NAME];
+        memset(longname, 'a', sizeof longname - 1);
+        longname[sizeof longname - 1] = 0;
+        bl = (size_t)snprintf(body, sizeof body,
+                              "format = gramvanity-checkpoint\n"
+                              "version = 1\n"
+                              "mode = bip39-12\n"
+                              "next = 5\n"
+                              "key = %s\n"
+                              "[target]\n"
+                              "name = %s\n"
+                              "suffix = QQQ\n"
+                              "[target]\n"
+                              "name = %s\n"
+                              "suffix = RRR\n",
+                              keyhex1, longname, longname);
+        test_write_cp(pe, body, bl);
+        char expect[MAX_TARGET_NAME];
+        memset(expect, 'a', MAX_TARGET_NAME - 12);
+        snprintf(expect + MAX_TARGET_NAME - 12, sizeof expect - (MAX_TARGET_NAME - 12), "-2");
+        const char *longone[1] = {pe};
+        tcheck(checkpoint_merge(longone, 1, out3, &mo, &dropped, &renamed, err, sizeof err) == 0 &&
+               mo.n_targets == 2 && renamed == 1,
+               "checkpoint-merge: a 63-character name is renamed without looping");
+        checkpoint_free(&mo);
+        tcheck(checkpoint_load(out3, &rl, err, sizeof err) == 0 && rl.n_targets == 2 &&
+               !strcmp(rl.targets[0].name, longname) && !strcmp(rl.targets[1].name, expect) &&
+               !strcmp(rl.targets[1].suffix[0], "RRR"),
+               "checkpoint-merge: the long name is renamed by truncating the base");
+        checkpoint_free(&rl);
+        remove(pa);
+        remove(pb);
+        remove(pc);
+        remove(pd);
+        remove(pe);
+        remove(outp);
+        remove(out2);
+        remove(out3);
+    }
     // EN: 6. target matching: alternatives inside a group, AND between groups
     // RU: 6. совпадение целей: альтернативы внутри группы, AND между группами
     n_targets = 0;

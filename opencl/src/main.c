@@ -261,6 +261,13 @@ static void parse_args(int argc, char **argv) {
                 die(tr("--reveal index must be a number", "индекс --reveal должен быть числом"));
         } else if (!strcmp(a, "--checkpoint-info")) { opt.checkpoint_info = 1; snprintf(opt.checkpoint, sizeof opt.checkpoint, "%s", NEXT()); }
         else if (!strcmp(a, "--checkpoint-fix")) { opt.checkpoint_fix = 1; snprintf(opt.checkpoint, sizeof opt.checkpoint, "%s", NEXT()); }
+        else if (!strcmp(a, "--checkpoint-merge")) opt.checkpoint_merge = 1;
+        else if (!strcmp(a, "--in")) {
+            const char *v = NEXT();
+            if (opt.n_merge_ins >= CHECKPOINT_MERGE_MAX_IN)
+                die(tr("too many --in inputs (max 64)", "слишком много входов --in (максимум 64)"));
+            opt.merge_ins[opt.n_merge_ins++] = v;
+        }
         else if (!strcmp(a, "--selftest-det")) opt.selftest_det = 1;
         else if (!strcmp(a, "--help") || !strcmp(a, "-h")) usage(0);
         else usage(1);
@@ -281,6 +288,14 @@ static void validate_args(void) {
     if (opt.random_mode && opt.stop_after)
         die(tr("--random cannot be combined with --stop-after (it counts deterministic indices)",
                "--random нельзя сочетать с --stop-after (он считает детерминированные индексы)"));
+    // EN: --in belongs to --checkpoint-merge only; a lone flag must not be silently ignored
+    // RU: --in принадлежит только --checkpoint-merge; одиночный флаг не должен молча игнорироваться
+    if (opt.n_merge_ins && !opt.checkpoint_merge)
+        die(tr("--in is only valid together with --checkpoint-merge",
+               "--in допустим только вместе с --checkpoint-merge"));
+    if (opt.checkpoint_merge && !opt.n_merge_ins)
+        die(tr("--checkpoint-merge needs at least one --in input (see --help)",
+               "--checkpoint-merge нужен хотя бы один вход --in (см. --help)"));
 }
 
 // ---------------------------------------------------------------- CPU-only utility modes
@@ -360,6 +375,64 @@ static int cmd_checkpoint_fix(void) {
            MODE_NAME[in.mode], in.n_targets, (unsigned long long)in.next,
            (unsigned long long)in.unique_hits);
     checkpoint_free(&in);
+    return 0;
+}
+
+// EN: --checkpoint-merge --in CKPT [--in ...] [--out DIR]: build a new checkpoint from the
+// EN: unfinished targets of one or more checkpoints. The output is a new job folder (default
+// EN: results/job-<UTC timestamp>, or --out exactly as given) with job.checkpoint inside; the
+// EN: merged file stores no job_dir, so its own folder is the job folder on resume. The summary
+// EN: is human prose; the machine-readable dump of the result is --checkpoint-info.
+// RU: --checkpoint-merge --in CKPT [--in ...] [--out DIR]: собрать новый checkpoint из
+// RU: невыполненных целей одного или нескольких checkpoint. Результат — новая папка задания
+// RU: (по умолчанию results/job-<UTC-метка> или --out ровно как задан) с job.checkpoint внутри;
+// RU: объединённый файл не хранит job_dir, поэтому его собственная папка и есть папка задания
+// RU: при продолжении. Сводка — человекочитаемый текст; машиночитаемый дамп результата даёт
+// RU: --checkpoint-info.
+static int cmd_checkpoint_merge(void) {
+    job_dir_make(); // EN: --out as given, else results/job-<UTC timestamp> | RU: --out как задан, иначе results/job-<UTC-метка>
+    char out_path[4096];
+    snprintf(out_path, sizeof out_path, "%s%cjob.checkpoint", job_dir, PATH_SEP);
+    // EN: a --in value may be a job folder: it then points at the job.checkpoint inside
+    // RU: значение --in может быть папкой задания: тогда оно указывает на job.checkpoint внутри
+    const char *ins[CHECKPOINT_MERGE_MAX_IN];
+    static char in_paths[CHECKPOINT_MERGE_MAX_IN][4096];
+    for (int i = 0; i < opt.n_merge_ins; i++) {
+        ins[i] = opt.merge_ins[i];
+        if (dir_exists(opt.merge_ins[i])) {
+            snprintf(in_paths[i], sizeof in_paths[i], "%s%cjob.checkpoint", opt.merge_ins[i], PATH_SEP);
+            ins[i] = in_paths[i];
+        }
+    }
+    struct Checkpoint out;
+    int dropped = 0, renamed = 0;
+    char err[256];
+    if (checkpoint_merge(ins, opt.n_merge_ins, out_path, &out, &dropped, &renamed, err, sizeof err))
+        die("%s", err);
+    printf(tr("checkpoint merged: %s\n", "checkpoint собран: %s\n"), out_path);
+    printf(tr("  mode %s, %u target(s) kept, %d done target(s) dropped\n",
+              "  режим %s, целей сохранено: %u, выполненных отброшено: %d\n"),
+           MODE_NAME[out.mode], out.n_targets, dropped);
+    for (uint32_t t = 0; t < out.n_targets; t++) {
+        const CheckpointTarget *ct = &out.targets[t];
+        if (ct->flags & 2)
+            printf(tr("  %s: %llu hit(s), count %llu\n", "  %s: %llu хит(ов), count %llu\n"),
+                   ct->name, (unsigned long long)ct->hits, (unsigned long long)ct->count);
+        else
+            printf(tr("  %s: %llu hit(s), no count limit\n", "  %s: %llu хит(ов), без лимита\n"),
+                   ct->name, (unsigned long long)ct->hits);
+    }
+    if (renamed)
+        printf(tr("  %d duplicated target name(s) with other patterns renamed with -2, -3...\n",
+                  "  %d повторившихся имён целей с другими шаблонами получили суффиксы -2, -3...\n"),
+               renamed);
+    printf(tr("  fresh search key, the search restarts from index 0; the hits of the dropped done\n"
+              "  targets stay recoverable only from their original checkpoints (--reveal)\n",
+              "  ключ поиска новый, поиск начнётся с индекса 0; хиты отброшенных выполненных целей\n"
+              "  остаются восстановимыми только из их исходных checkpoint (--reveal)\n"));
+    printf(tr("  resume with: ./gramvanity --resume \"%s\"\n",
+              "  продолжение: ./gramvanity --resume \"%s\"\n"), out_path);
+    checkpoint_free(&out);
     return 0;
 }
 
@@ -963,6 +1036,7 @@ static int real_main(int argc, char **argv) {
     // RU: служебные режимы только на CPU, которым не нужны GPU и состояние поиска
     if (opt.selftest_det) return selftest_det();
     if (opt.checkpoint_fix) return cmd_checkpoint_fix();
+    if (opt.checkpoint_merge) return cmd_checkpoint_merge();
     if (opt.checkpoint_info) return cmd_checkpoint_info();
     if (opt.reveal_file[0]) return cmd_reveal();
     if (opt.derive_key[0]) return cmd_derive();

@@ -79,7 +79,7 @@ cycles; the former monolith cycle `checkpoint <-> hits` is broken by the dedicat
   as the one-off helper for the SLIP-10 master-key states; GPU/CPU agreement is guarded by the
   startup self-test.
 - **selftest** — `self_test()` (published vectors: SHA-256, BIP39 PBKDF2, W5/WalletTg addresses,
-  GPU-vs-CPU cross-checks) runs before every search; `--selftest-det` runs the ~50 deterministic
+  GPU-vs-CPU cross-checks) runs before every search; `--selftest-det` runs the ~70 deterministic
   search assertions without a GPU (this is what CI runs).
 - **i18n** — the message language: `--lang en|ru` and `GRAMVANITY_LANG`, English by default with no
   locale auto-detection. `tr("english", "русский")` picks the variant; both variants must carry the
@@ -130,7 +130,12 @@ all_patterns, suffix/suffix_hits and prefix/prefix_hits pairs}`. The last signif
 or hand edit is caught; `--checkpoint-fix` validates the fields and re-signs the file. Quoted values
 (`\\ \" \n \r \t \xNN` escapes) keep spaces, quotes, `#` and arbitrary bytes intact; unknown or
 duplicate keys are errors. The file is intentionally hand-editable: raise a `count`, change
-patterns, add or remove a `[target]` block — then run `--checkpoint-fix` and `--resume`.
+patterns, add or remove a `[target]` block — then run `--checkpoint-fix` and `--resume`. Empty
+`job_dir`/`out` values are not written at all (a merged file then uses its own folder as the job
+folder). `--checkpoint-merge` builds a new checkpoint from the unfinished targets of one or more
+inputs: done targets are dropped, same targets combine by the per-field maximum, a reused name with
+other patterns gets a `-N` suffix; the result is a new job — a fresh search key, position 0, zeroed
+counters (candidates are derived from the key, so nothing has been searched under a new key yet).
 
 **Deterministic search:** candidate entropy = `HMAC-SHA512(searchKey, "svDET1" || mode || be64 index)`;
 the tg-wallet signing half uses the separate mode byte 16 (`DETSIGN`). Same key + index = same
@@ -158,7 +163,7 @@ candidate; the key lives only in the checkpoint (owner-only file).
 
 - `make -C opencl` — clean build, no new warnings (gcc -Wall -Wextra).
 - `opencl/gramvanity --selftest-det` — all unit assertions pass (also in CI, no GPU needed).
-- `sh opencl/tests/test_det.sh` — the 19-scenario GPU integration suite (121 checks; it pins
+- `sh opencl/tests/test_det.sh` — the 20-scenario GPU integration suite (134 checks; it pins
   `GRAMVANITY_LANG=en` because its assertions match English output).
 - `python3 tools/check_i18n.py` — every `.md` pair exists and links to its translation (CI).
 - Golden runs: deterministic-range scenarios produce identical `--checkpoint-info` output before and after

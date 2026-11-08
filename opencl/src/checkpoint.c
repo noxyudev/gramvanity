@@ -262,7 +262,11 @@ static size_t checkpoint_serialize(const struct Checkpoint *cp) {
     put_line("mode", MODE_NAME[cp->mode], "bip39-12 | bip39-24 | ton-24 | tg-wallet");
     put_line("bounceable", (cp->flags & 1) ? "yes" : "no", "yes | no");
     put_line("net", (cp->flags & 2) ? "testnet" : "mainnet", "mainnet | testnet");
-    put_qline("job_dir", cp->job_dir, NULL);
+    // EN: an empty job_dir is omitted: without the line the file's own folder becomes the job
+    // EN: folder on resume (the hand-written file rule), which is what --checkpoint-merge writes
+    // RU: пустой job_dir не пишется: без строки папкой задания при продолжении становится папка
+    // RU: самого файла (правило файла, собранного вручную), что и пишет --checkpoint-merge
+    if (cp->job_dir[0]) put_qline("job_dir", cp->job_dir, NULL);
     cb_puts("\n# search position\n", 19);
     put_u64("start", cp->start, "first index of the job");
     put_u64("next", cp->next, "first index not fully checked yet");
@@ -279,7 +283,9 @@ static size_t checkpoint_serialize(const struct Checkpoint *cp) {
         cb_puts("\n[target]\n", 10);
         put_qline("name", t->name, NULL);
         put_qline("label", t->label, NULL);
-        put_qline("out", t->out, NULL);
+        // EN: an empty out is omitted: the target then shares the job folder on resume
+        // RU: пустой out не пишется: цель тогда делит папку задания при продолжении
+        if (t->out[0]) put_qline("out", t->out, NULL);
         if (t->flags & 2)
             put_u64("count", t->count, "stop after N hits; remove the line for unlimited");
         put_u64("hits", t->hits, "hits found for this target");
@@ -1148,19 +1154,28 @@ int checkpoint_load(const char *path, struct Checkpoint *in, char *err, size_t e
     return load_impl(path, in, 0, err, errn);
 }
 
+// EN: serialize + durable write, shared by --checkpoint-fix and --checkpoint-merge
+// RU: сериализация + надёжная запись, общие для --checkpoint-fix и --checkpoint-merge
+static int write_checkpoint_file(const char *path, const struct Checkpoint *cp, char *err, size_t errn) {
+    if (checkpoint_reserve(serialize_need(cp)) != 0) {
+        snprintf(err, errn, "%s", tr("out of memory", "не хватает памяти"));
+        return -1;
+    }
+    size_t len = checkpoint_serialize(cp);
+    int rc = len ? write_file_atomic(path, checkpoint_buf, len) : -1;
+    if (rc) snprintf(err, errn, tr("cannot write %s", "не удалось записать %s"), path);
+    return rc;
+}
+
 int checkpoint_fix(const char *path, struct Checkpoint *in, char *err, size_t errn) {
     if (load_impl(path, in, 1, err, errn)) return -1;
-    if (checkpoint_reserve(serialize_need(in)) != 0) {
-        snprintf(err, errn, "%s", tr("out of memory", "не хватает памяти"));
+    if (write_checkpoint_file(path, in, err, errn)) {
         checkpoint_free(in);
         return -1;
     }
-    size_t len = checkpoint_serialize(in);
-    int rc = len ? write_file_atomic(path, checkpoint_buf, len) : -1;
     // EN: on success *in stays filled for the caller's summary; the caller frees it
     // RU: при успехе *in остаётся заполненным для сводки вызывающей стороны; освобождает её вызывающий
-    if (rc) snprintf(err, errn, tr("cannot write %s", "не удалось записать %s"), path);
-    return rc;
+    return 0;
 }
 
 // ---------------------------------------------------------------- targets from a checkpoint
@@ -1323,4 +1338,251 @@ void targets_from_checkpoint(struct Checkpoint *in) {
         if (ct->suf_hits) memcpy(t->suf_hits, ct->suf_hits, (size_t)ct->n_suffix * sizeof *t->suf_hits);
         if (ct->pre_hits) memcpy(t->pre_hits, ct->pre_hits, (size_t)ct->n_prefix * sizeof *t->pre_hits);
     }
+}
+
+// ---------------------------------------------------------------- --checkpoint-merge
+
+// EN: mirror of target_done_locked() (stats.c) on a checkpoint record: a target with a count is
+// EN: done once it has that many hits; with --all-patterns every pattern needs its own count
+// RU: зеркало target_done_locked() (stats.c) на записи checkpoint: цель с count выполнена, когда
+// RU: набрала столько хитов; с --all-patterns каждый шаблон должен набрать свой count
+static int cp_target_done(const CheckpointTarget *t) {
+    if (!(t->flags & 2)) return 0;
+    if (t->flags & 8) {
+        for (uint32_t k = 0; k < t->n_prefix; k++)
+            if (!t->pre_hits || t->pre_hits[k] < t->count) return 0;
+        for (uint32_t k = 0; k < t->n_suffix; k++)
+            if (!t->suf_hits || t->suf_hits[k] < t->count) return 0;
+        return 1;
+    }
+    return t->hits >= t->count;
+}
+
+// EN: the merge identity of a target: the name plus everything that defines which addresses match.
+// EN: Equal identities combine into one; the same name with different identities stays separate.
+// RU: идентичность цели при слиянии: имя плюс всё, что задаёт множество совпадающих адресов.
+// RU: Одинаковые склеиваются в одну; то же имя с другим содержимым остаётся отдельной целью.
+static int cp_target_same(const CheckpointTarget *a, const CheckpointTarget *b) {
+    if (strcmp(a->name, b->name)) return 0;
+    if ((a->flags ^ b->flags) & (1u | 4u | 8u)) return 0; // EN: ignore-case, match, all-patterns
+                                                          // RU: ignore-case, match, all-patterns
+    if (a->n_suffix != b->n_suffix || a->n_prefix != b->n_prefix) return 0;
+    for (uint32_t k = 0; k < a->n_suffix; k++)
+        if (strcmp(a->suffix[k], b->suffix[k])) return 0;
+    for (uint32_t k = 0; k < a->n_prefix; k++)
+        if (strcmp(a->prefix[k], b->prefix[k])) return 0;
+    return 1;
+}
+
+static char *cp_dup(const char *s) {
+    size_t n = strlen(s) + 1;
+    char *p = malloc(n);
+    if (p) memcpy(p, s, n);
+    return p;
+}
+
+// EN: deep copy of one target record for the merged file. The out line is dropped on purpose: the
+// EN: merged file's own folder is the job folder, so every target shares it by default.
+// RU: глубокая копия записи цели для объединённого файла. Строка out отбрасывается намеренно:
+// RU: папка объединённого файла становится папкой задания, и все цели по умолчанию делят её.
+static int cp_target_copy(CheckpointTarget *dst, const CheckpointTarget *src, char *err, size_t errn) {
+    *dst = *src;
+    dst->out[0] = 0;
+    dst->suffix = dst->prefix = NULL;
+    dst->suf_hits = dst->pre_hits = NULL;
+    if (src->n_suffix) {
+        dst->suffix = calloc(src->n_suffix, sizeof *dst->suffix);
+        dst->suf_hits = calloc(src->n_suffix, sizeof *dst->suf_hits);
+        if (!dst->suffix || !dst->suf_hits) goto oom;
+        for (uint32_t k = 0; k < src->n_suffix; k++) {
+            if (!(dst->suffix[k] = cp_dup(src->suffix[k]))) goto oom;
+            dst->suf_hits[k] = src->suf_hits ? src->suf_hits[k] : 0;
+        }
+    }
+    if (src->n_prefix) {
+        dst->prefix = calloc(src->n_prefix, sizeof *dst->prefix);
+        dst->pre_hits = calloc(src->n_prefix, sizeof *dst->pre_hits);
+        if (!dst->prefix || !dst->pre_hits) goto oom;
+        for (uint32_t k = 0; k < src->n_prefix; k++) {
+            if (!(dst->prefix[k] = cp_dup(src->prefix[k]))) goto oom;
+            dst->pre_hits[k] = src->pre_hits ? src->pre_hits[k] : 0;
+        }
+    }
+    return 0;
+oom:
+    // EN: the caller has not appended *dst yet, so free the partial copy here (calloc keeps the
+    // EN: unassigned entries NULL, so the plain loop is safe)
+    // RU: вызывающая сторона ещё не добавила *dst, поэтому частичную копию освобождаем здесь
+    // RU: (calloc оставляет незаполненные элементы NULL, поэтому простой цикл безопасен)
+    if (dst->suffix)
+        for (uint32_t k = 0; k < src->n_suffix; k++) free(dst->suffix[k]);
+    if (dst->prefix)
+        for (uint32_t k = 0; k < src->n_prefix; k++) free(dst->prefix[k]);
+    free(dst->suffix);
+    free(dst->suf_hits);
+    free(dst->prefix);
+    free(dst->pre_hits);
+    snprintf(err, errn, "%s", tr("out of memory", "не хватает памяти"));
+    return -1;
+}
+
+// EN: a name already taken by a target with different patterns gets -2, -3... until unique. The
+// EN: base is truncated so that the -N suffix always fits: without that a name of 62+ characters
+// EN: would truncate back to itself, always look taken, and loop forever.
+// RU: имя, уже занятое целью с другими шаблонами, получает -2, -3..., пока не станет уникальным.
+// RU: База обрезается так, чтобы суффикс -N всегда влез: иначе имя из 62+ символов обрезалось бы
+// RU: обратно в себя, всегда оказывалось занятым и зациклилось бы.
+static void cp_unique_name(char *name, size_t cap, const struct Checkpoint *acc) {
+    for (int n = 2;; n++) {
+        char try_name[MAX_TARGET_NAME];
+        snprintf(try_name, sizeof try_name, "%.*s-%d", MAX_TARGET_NAME - 12, name, n);
+        int taken = 0;
+        for (uint32_t k = 0; k < acc->n_targets && !taken; k++)
+            if (!strcmp(acc->targets[k].name, try_name)) taken = 1;
+        if (!taken) {
+            snprintf(name, cap, "%s", try_name);
+            return;
+        }
+    }
+}
+
+// EN: the same target in several inputs: merge the counters by taking the per-field maximum
+// EN: (unlimited beats any count). The identity check has already matched the pattern sets, so the
+// EN: per-pattern arrays pair up positionally.
+// RU: та же цель в нескольких входах: счётчики по максимуму полей (unlimited сильнее любого count).
+// RU: Проверка идентичности уже сопоставила наборы шаблонов, поэтому массивы по шаблонам сходятся
+// RU: позиционно.
+static void cp_target_combine(CheckpointTarget *dst, const CheckpointTarget *ct) {
+    if (!(ct->flags & 2)) dst->flags &= ~2u;
+    else if ((dst->flags & 2) && ct->count > dst->count) dst->count = ct->count;
+    if (ct->hits > dst->hits) dst->hits = ct->hits;
+    for (uint32_t k = 0; k < ct->n_suffix; k++)
+        if (ct->suf_hits && ct->suf_hits[k] > dst->suf_hits[k]) dst->suf_hits[k] = ct->suf_hits[k];
+    for (uint32_t k = 0; k < ct->n_prefix; k++)
+        if (ct->pre_hits && ct->pre_hits[k] > dst->pre_hits[k]) dst->pre_hits[k] = ct->pre_hits[k];
+}
+
+// EN: find the accumulated twin of a kept target or append a deep copy of it, renaming the copy
+// EN: when its name is already taken by a target with different patterns. Returns the accumulated
+// EN: record, or NULL on out of memory (err is filled; the caller frees *out).
+// RU: ищет накопленного двойника сохранённой цели или добавляет её глубокую копию, переименовав
+// RU: копию, если её имя занято целью с другими шаблонами. Возвращает накопленную запись или NULL
+// RU: при нехватке памяти (err заполнен; вызывающая сторона освобождает *out).
+static CheckpointTarget *cp_merge_target(struct Checkpoint *out, const CheckpointTarget *ct,
+                                         int *nrenamed, char *err, size_t errn) {
+    for (uint32_t k = 0; k < out->n_targets; k++)
+        if (cp_target_same(&out->targets[k], ct)) {
+            cp_target_combine(&out->targets[k], ct);
+            return &out->targets[k];
+        }
+    CheckpointTarget *nt = realloc(out->targets, (out->n_targets + 1) * sizeof *nt);
+    if (!nt) {
+        snprintf(err, errn, "%s", tr("out of memory", "не хватает памяти"));
+        return NULL;
+    }
+    out->targets = nt;
+    CheckpointTarget *dst = &out->targets[out->n_targets];
+    if (cp_target_copy(dst, ct, err, errn)) return NULL;
+    // EN: the name may already be taken by a kept target with different patterns
+    // RU: имя может быть занято сохранённой целью с другими шаблонами
+    for (uint32_t k = 0; k < out->n_targets; k++)
+        if (!strcmp(out->targets[k].name, dst->name)) {
+            cp_unique_name(dst->name, sizeof dst->name, out);
+            (*nrenamed)++;
+            break;
+        }
+    out->n_targets++;
+    return dst;
+}
+
+int checkpoint_merge(const char *const *inputs, int n_inputs, const char *out_path,
+                     struct Checkpoint *out, int *dropped, int *renamed,
+                     char *err, size_t errn) {
+    if (n_inputs < 1) {
+        snprintf(err, errn, "%s", tr("--checkpoint-merge: no input files",
+                                     "--checkpoint-merge: нет входных файлов"));
+        return -1;
+    }
+    // EN: never overwrite: the output path may hold a precious checkpoint whose key would be lost
+    // EN: forever (the check also rules out an input path as the output)
+    // RU: никогда не перезаписываем: на выходном пути может лежать ценный checkpoint, чей ключ
+    // RU: потерялся бы навсегда (проверка заодно исключает входной путь как выходной)
+    FILE *probe = fopen(out_path, "rb");
+    if (probe) {
+        fclose(probe);
+        snprintf(err, errn, "%s: %s", out_path,
+                 tr("output checkpoint already exists", "выходной checkpoint уже существует"));
+        return -1;
+    }
+    struct Checkpoint *cps = calloc((size_t)n_inputs, sizeof *cps);
+    if (!cps) {
+        snprintf(err, errn, "%s", tr("out of memory", "не хватает памяти"));
+        return -1;
+    }
+    // EN: load every input first: the merged file is written only when all of them parse, so a
+    // EN: failed merge never touches the output path
+    // RU: сначала загружаем все входы: объединённый файл пишется, только если все разобрались,
+    // RU: поэтому неудачное слияние никогда не трогает выходной путь
+    for (int i = 0; i < n_inputs; i++) {
+        char sub[256];
+        if (checkpoint_load(inputs[i], &cps[i], sub, sizeof sub)) {
+            snprintf(err, errn, "%s: %s", inputs[i], sub);
+            goto fail;
+        }
+        if (i && (cps[i].mode != cps[0].mode || cps[i].flags != cps[0].flags)) {
+            snprintf(err, errn, "%s", tr("--checkpoint-merge: all inputs must share the mode, "
+                                         "the wallet form and the network",
+                                         "--checkpoint-merge: все входы должны совпадать по режиму, "
+                                         "форме и сети кошелька"));
+            goto fail;
+        }
+    }
+    // EN: the merged file is a new job: a fresh search key and zeroed position and counters.
+    // EN: Candidates are derived from the key (HMAC of the index), so nothing has been searched
+    // EN: under the new key yet and index 0 is the honest starting point.
+    // RU: объединённый файл — новое задание: свежий ключ поиска, позиция и счётчики с нуля.
+    // RU: Кандидаты выводятся из ключа (HMAC индекса), под новым ключом ещё ничего не искали,
+    // RU: и честная стартовая точка — индекс 0.
+    memset(out, 0, sizeof *out);
+    out->mode = cps[0].mode;
+    out->flags = cps[0].flags;
+    random_bytes(out->key, 32);
+    int ndropped = 0, nrenamed = 0;
+    for (int i = 0; i < n_inputs; i++) {
+        for (uint32_t t = 0; t < cps[i].n_targets; t++) {
+            const CheckpointTarget *ct = &cps[i].targets[t];
+            // EN: done targets are dropped: a different key would make their hits unrecoverable
+            // RU: выполненные цели отбрасываются: под другим ключом их хиты не восстановить
+            if (cp_target_done(ct)) {
+                ndropped++;
+                continue;
+            }
+            if (!cp_merge_target(out, ct, &nrenamed, err, errn)) {
+                checkpoint_free(out);
+                goto fail;
+            }
+        }
+    }
+    if (out->n_targets == 0) {
+        snprintf(err, errn, "%s",
+                 tr("--checkpoint-merge: nothing to merge: every target has reached its --count",
+                    "--checkpoint-merge: делать нечего: все цели достигли своего --count"));
+        checkpoint_free(out);
+        goto fail;
+    }
+    if (write_checkpoint_file(out_path, out, err, errn)) {
+        checkpoint_free(out);
+        goto fail;
+    }
+    if (dropped) *dropped = ndropped;
+    if (renamed) *renamed = nrenamed;
+    // EN: the inputs are no longer needed; *out stays filled for the caller's summary
+    // RU: входы больше не нужны; *out остаётся заполненным для сводки вызывающей стороны
+    for (int i = 0; i < n_inputs; i++) checkpoint_free(&cps[i]);
+    free(cps);
+    return 0;
+fail:
+    for (int i = 0; i < n_inputs; i++) checkpoint_free(&cps[i]);
+    free(cps);
+    return -1;
 }

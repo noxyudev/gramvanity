@@ -492,6 +492,62 @@ if [ -f "$OUT/hit-A+B-0.txt" ]; then ok "the default count applies to every targ
 grep -q 'stopped: all target counts reached' "$TMP/t11b.log" \
     && ok "a multi-target run also stops at the default count" || bad "a multi-target run also stops at the default count"
 
+echo "== T12: --checkpoint-merge consolidates unfinished targets =="
+CKA="$TMP/t12a.checkpoint"; OUTA="$TMP/t12a-out"
+CKB="$TMP/t12b.checkpoint"; OUTB="$TMP/t12b-out"
+CKC="$TMP/t12c.checkpoint"; OUTC="$TMP/t12c-out"
+rm -f "$CKA" "$CKB" "$CKC"; rm -rf "$OUTA" "$OUTB" "$OUTC"
+# EN: job A: X reaches its count, Y does not; job B (default checkpoint in its job folder):
+# EN: Z stays without hits; job C is tg-wallet. --out goes before the --target blocks: there it is
+# EN: the job folder, not a per-target hit directory.
+# RU: задание A: X добирает свой count, Y нет; задание B (checkpoint по умолчанию в своей папке):
+# RU: Z без хитов; задание C — tg-wallet. --out стоит до блоков --target: там это папка задания,
+# RU: а не каталог хитов отдельной цели.
+"$BIN" --mode bip39-12 --out "$OUTA" --target X --suffix '[0-9A-Za-z_-]' --target Y --suffix ZZZZZZ \
+       --count 1 --tries 20000 --checkpoint-interval 5 $NOVERIFY --checkpoint "$CKA" > "$TMP/t12a.log" 2>&1
+check "job A: target X reached its count" "$(target_hits "$CKA" X)" "1"
+check "job A: target Y is still unfinished" "$(target_hits "$CKA" Y)" "0"
+"$BIN" --mode bip39-12 --out "$OUTB" --target Z --suffix ZZZZZZ --count 2 --tries 3000 \
+       --checkpoint-interval 5 $NOVERIFY > "$TMP/t12b.log" 2>&1
+check "job B: target Z has no hits" "$(target_hits "$OUTB/job.checkpoint" Z)" "0"
+"$BIN" --suffix ZZZZZZ --count 1 --tries 100 --checkpoint-interval 5 $NOVERIFY \
+       --checkpoint "$CKC" --out "$OUTC" > "$TMP/t12c.log" 2>&1
+MOUT="$TMP/t12-merged"; rm -rf "$MOUT"
+# EN: --in takes both forms: a checkpoint file and a job folder
+# RU: --in принимает обе формы: файл checkpoint и папку задания
+"$BIN" --checkpoint-merge --in "$CKA" --in "$OUTB" --out "$MOUT" > "$TMP/t12m.log" 2>&1
+MCK="$MOUT/job.checkpoint"
+[ -f "$MCK" ] && ok "merge writes job.checkpoint into the --out folder" || bad "merge writes job.checkpoint into the --out folder"
+grep -q '2 target(s) kept, 1 done target(s) dropped' "$TMP/t12m.log" \
+    && ok "merge keeps the unfinished targets and drops the done one" || bad "merge keeps the unfinished targets and drops the done one"
+check "merged: the done target X is gone" "$(target_hits "$MCK" X)" ""
+check "merged: Y is kept" "$(target_hits "$MCK" Y)" "0"
+check "merged: Z is kept" "$(target_hits "$MCK" Z)" "0"
+"$BIN" --checkpoint-info "$MCK" | grep -q 'job folder: (not stored)' \
+    && ok "the merged file stores no job folder (its own folder is the job folder)" || bad "the merged file stores no job folder (its own folder is the job folder)"
+grep -q '^job_dir' "$MCK" && bad "the merged file has no job_dir line" || ok "the merged file has no job_dir line"
+"$BIN" --resume "$MCK" --tries 3000 $NOVERIFY > "$TMP/t12r.log" 2>&1
+check "the merged job resumes from index 0" "$(next_index "$MCK")" "3000"
+MOUT2="$TMP/t12-mixed"; rm -rf "$MOUT2"
+if "$BIN" --checkpoint-merge --in "$CKA" --in "$CKC" --out "$MOUT2" > "$TMP/t12x.log" 2>&1; then
+    bad "merge rejects mixed modes"
+else
+    ok "merge rejects mixed modes"
+fi
+# EN: without --out the merged job folder follows the default results/job-<timestamp> rule
+# RU: без --out папка объединённого задания подчиняется правилу results/job-<метка> по умолчанию
+BEFORE="$TMP/t12-jobs-before"; AFTER="$TMP/t12-jobs-after"
+ls -d ../results/job-*/ 2>/dev/null | sort > "$BEFORE" || : > "$BEFORE"
+"$BIN" --checkpoint-merge --in "$CKA" --in "$OUTB" > "$TMP/t12d.log" 2>&1
+ls -d ../results/job-*/ 2>/dev/null | sort > "$AFTER" || : > "$AFTER"
+NEWMERGE=$(comm -13 "$BEFORE" "$AFTER" | head -1)
+if [ -n "$NEWMERGE" ] && [ -f "$NEWMERGE/job.checkpoint" ]; then
+    ok "merge without --out creates results/job-<timestamp>/ with job.checkpoint ($NEWMERGE)"
+    rm -rf "$NEWMERGE"
+else
+    bad "merge without --out creates results/job-<timestamp>/ with job.checkpoint"
+fi
+
 echo
 echo "passed $PASS, failed $FAIL"
 [ "$FAIL" -eq 0 ]

@@ -169,7 +169,7 @@ Minimum after changes to C/OpenCL:
 ./opencl/gramvanity.exe --selftest-det
 ```
 
-`--selftest-det` needs no GPU (~50 deterministic assertions), but it does not replace a check of the
+`--selftest-det` needs no GPU (~70 deterministic assertions), but it does not replace a check of the
 GPU path.
 
 After changes to the Go verifier:
@@ -193,7 +193,7 @@ GPU checks, when the task touches them:
 sh opencl/tests/test_det.sh
 ```
 
-`test_det.sh` is the GPU integration suite (20 scenarios, 113 checks, about 7 minutes). Run it from
+`test_det.sh` is the GPU integration suite (20 scenarios, 134 checks, about 7 minutes). Run it from
 the root or from `opencl/`: the script changes to the right directory itself and uses temporary
 folders. Without a GPU this suite cannot run — state that explicitly in the final report.
 

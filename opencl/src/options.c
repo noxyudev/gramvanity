@@ -94,6 +94,10 @@ void usage(int code) {
                "  --checkpoint-info FILE  напечатать содержимое checkpoint (без секретного ключа)\n"
                "  --checkpoint-fix FILE  проверить отредактированный вручную checkpoint (все поля, кроме\n"
                "                    контрольной суммы) и перезаписать его с новой суммой\n"
+               "  --checkpoint-merge --in CKPT [--in CKPT...] [--out DIR]\n"
+               "                    собрать новый checkpoint (job.checkpoint в новой папке задания) из\n"
+               "                    невыполненных целей одного или нескольких checkpoint; --in принимает\n"
+               "                    файл или папку задания, --out по умолчанию results/job-<UTC-метка>\n"
                "  --selftest-det    запустить unit-тесты детерминированного поиска и выйти (GPU не нужен)\n"
                "  --device N     какой GPU OpenCL использовать (см. --list-devices), по умолчанию 0\n");
         exit(code);
@@ -152,6 +156,10 @@ void usage(int code) {
            "  --checkpoint-info FILE  print the contents of a checkpoint (without the secret key)\n"
            "  --checkpoint-fix FILE  validate a hand-edited checkpoint (every field, not the checksum)\n"
            "                    and rewrite it with a fresh checksum\n"
+           "  --checkpoint-merge --in CKPT [--in CKPT...] [--out DIR]\n"
+           "                    build a new checkpoint (job.checkpoint in a new job folder) from the\n"
+           "                    unfinished targets of one or more checkpoints; --in takes a file or a\n"
+           "                    job folder, --out defaults to results/job-<UTC timestamp>\n"
            "  --selftest-det    run the deterministic-search unit tests and exit (no GPU needed)\n"
            "  --device N     OpenCL GPU to use (see --list-devices), default 0\n");
     exit(code);

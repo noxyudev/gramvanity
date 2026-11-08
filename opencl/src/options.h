@@ -5,6 +5,9 @@
 
 #include <stdint.h>
 
+// EN: --checkpoint-merge input limit | RU: ограничение числа входов --checkpoint-merge
+enum { CHECKPOINT_MERGE_MAX_IN = 64 };
+
 typedef struct {
     int mode, bounceable, ignore_case, threads, verify, device, list_devices;
     // EN: performance limit, percent of the wall time the GPU and the CPU stay busy
@@ -21,6 +24,12 @@ typedef struct {
     uint64_t start_offset, tries, stop_after, derive_index, reveal_index;
     char checkpoint[4096], resume[4096], derive_key[128], reveal_file[4096];
     int checkpoint_interval, start_given, tries_given, checkpoint_info, checkpoint_fix;
+    // EN: --checkpoint-merge: the inputs are pointers into argv (valid for the program lifetime);
+    // EN: the output job folder reuses out_dir/out_given
+    // RU: --checkpoint-merge: входы — указатели в argv (живут до конца программы); папка задания
+    // RU: для результата переиспользует out_dir/out_given
+    int checkpoint_merge, n_merge_ins;
+    const char *merge_ins[CHECKPOINT_MERGE_MAX_IN];
     int selftest_det;
     // EN: --random: fresh OS randomness for every candidate (not resumable)
     // RU: --random: свежая случайность ОС для каждого кандидата (не возобновляется)

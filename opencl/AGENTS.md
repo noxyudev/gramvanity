@@ -121,7 +121,7 @@ sh tests/test_det.sh
 ```
 
 - `--selftest-det` — deterministic unit assertions, no GPU needed.
-- `test_det.sh` — 20 scenarios/113 checks; requires a GPU and a built binary. It can be run from
+- `test_det.sh` — 20 scenarios/134 checks; requires a GPU and a built binary. It can be run from
   `opencl/` or from the root: the script changes to the right directory itself and uses temporary
   folders.
 - `GRAMVANITY_DEBUG=1` enables debug output for batch/chunk tuning.

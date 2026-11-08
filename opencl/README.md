@@ -100,14 +100,15 @@ sh tests/test_det.sh          # end-to-end tests on the GPU: stop/resume/crash/h
 signing domain), BIP39 checksums of generated candidates in both tg-wallet halves, index/range
 bookkeeping (no gaps, no overrun, 2^64 overflow handling), checkpoint round-trips with target
 records plus rejection of corrupted, truncated and foreign binary files, hand-edit +
-`--checkpoint-fix` flows, quoting edge cases, target AND/OR matching, `--ignore-case`, name
+`--checkpoint-fix` flows, checkpoint merging (done targets dropped, same targets combined by max,
+renaming, a fresh key), quoting edge cases, target AND/OR matching, `--ignore-case`, name
 resolution, and Cyrillic/CP1251 labels.
 
 `tests/test_det.sh` adds GPU end-to-end scenarios: stop-after → resume → completion; verified hit →
 key+index → replay with `--derive`/`--reveal`; tg-wallet on mainnet and testnet; corrupted and
 conflicting checkpoints; `ton-24` interruption; multi-pattern and multi-target hits with per-target
-counts and output folders; resume with raised counts; Cyrillic labels, their transliterated file
-names, and resume by label.
+counts and output folders; resume with raised counts; checkpoint consolidation (`--checkpoint-merge`);
+Cyrillic labels, their transliterated file names, and resume by label.
 
 ## Command-line reference
 
@@ -127,6 +128,7 @@ Every option in one place (the program explains each in `--help` output and the 
 --start-offset N                  --tries N             --checkpoint FILE
 --resume FILE                     --checkpoint-interval SEC
 --stop-after N                    --checkpoint-info FILE
+--checkpoint-fix FILE             --checkpoint-merge --in FILE|DIR [--in ...] [--out DIR]
 --random                          --derive KEYHEX INDEX
 --reveal CHECKPOINT INDEX         --selftest-det
 --help
@@ -139,6 +141,11 @@ Every option in one place (the program explains each in `--help` output and the 
 - `--no-verify` — skip the external verifier. The CPU re-derivation of every hit still runs.
 - `--dump N FILE` — write N fresh phrases and their addresses to FILE (JSON lines) and exit; useful
   for testing, not for searching.
+- `--checkpoint-fix FILE` — validate a hand-edited checkpoint and re-sign it.
+- `--checkpoint-merge` — build a new checkpoint from the unfinished targets of one or more
+  checkpoints; each `--in` is a checkpoint file or a job folder, `--out` is the new job folder
+  (default `results/job-<UTC timestamp>`). Done targets are dropped; the result is a new job with a
+  fresh key — see "Consolidating jobs" in the main README.
 - `GRAMVANITY_DEBUG=1` — environment variable; prints batch size and kernel-length tuning for every
   loop.
 
@@ -199,7 +206,9 @@ flush, rename), so a crash cannot leave a half-written file. The file is meant t
 hand-edited in any editor: raise a `count`, change patterns, add or remove a `[target]` block —
 after editing run `gramvanity --checkpoint-fix FILE` to validate the fields and re-sign the file
 (`--resume` refuses a file whose checksum does not match). Optional lines have defaults, so a new
-`[target]` block can be as short as `name` plus one `suffix`. Unknown or duplicate keys are errors,
+`[target]` block can be as short as `name` plus one `suffix`; `job_dir` and `out` are omitted
+entirely when empty (a merged checkpoint relies on this: its own folder becomes the job folder).
+Unknown or duplicate keys are errors,
 so a typo can never silently change the search. Indices are processed strictly in order
 `[start, end)` and the saved position is the last **confirmed** index — everything below it has had
 its address checked — so a resumed run starts exactly there, with no gaps, repeating at most the
