@@ -222,6 +222,12 @@ For reference, on an NVIDIA RTX 4070 Ti Super with a Ryzen 7 7800X3D under Windo
 `--power 100`: about 681,000 phrases per second for `bip39-12` and 675,000 for `tg-wallet`. PBKDF2
 alone reaches about 696,000, so the search is limited by PBKDF2, not by address checking.
 
+One throughput caveat: every saved hit is re-derived and verified on the CPU and, by default, by
+the external `w5addr` verifier, which spawns a process per hit. With a pattern broad enough to
+match most addresses and a large `--count`, hit handling - not the GPU - becomes the bottleneck
+(on the order of tens of hits per second with the default verification). This is fine for real
+searches, where hits are rare.
+
 Practical advice:
 
 - Decide the length first, then the exact characters.
@@ -394,6 +400,11 @@ On `--resume` all targets come back from the checkpoint. You may change their `-
 picks the checkpoint target by its id or its label (so `--target Паша` and `--target Pasha` both
 work); a block without a name picks the next unused target in order. Raising the count of a finished
 target continues from the current shared index, so already checked candidates are not repeated.
+
+The conflict checks compare the pattern lists literally, line by line: the **order** of the
+`suffix`/`prefix` lines inside one group matters. If you reorder pattern lines by hand, pass the
+same reordered list to `--resume` (or do not pass global patterns for that command) - otherwise
+the resume reports a conflict even though the pattern set is the same.
 
 The checkpoint is a plain UTF-8 text file ("gramvanity-checkpoint" v1): one `key = value` per line,
 `[target]` sections, allowed values spelled out in trailing comments, and a trailing `checksum`
