@@ -6,6 +6,49 @@ All notable changes to gramvanity are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
+## [1.1.2] - 2026-11-08
+
+A correctness and hardening release: the Windows emergency save, resumability
+diagnostics and the verifier path now work as documented, and secret files get
+owner-only ACLs on Windows.
+
+### Fixed
+- The Windows console-close emergency save is wired again: closing the window
+  mid-batch saves the checkpoint and writes the stop report from the handler
+  thread instead of losing everything since the last autosave.
+- `--resume --tries` refuses an end that falls behind the uncommitted stage-1
+  frontier of a ton-24 job (a crash can leave it millions of indices wide).
+  The previously accepted case searched past the end, counted the hits and then
+  rolled the checkpoint back, so the next extension duplicated hit files and
+  counters; resume with a larger `--tries` or without it.
+- Failed checkpoint saves are reported - one stderr line per autosave interval
+  and an explicit final-failure line instead of "checkpoint saved" - instead of
+  being silently ignored.
+- Launched from any working directory, the binary resolves the verifier and the
+  default `results/` folder from its own location again: `exe_dir` mishandled
+  the backslash path from `GetModuleFileNameA`, so outside `opencl/` the
+  verifier reported "not runnable" and job folders landed next to the working
+  directory.
+- The verifier temp file is named after the pid, so two concurrent runs cannot
+  read each other's answer.
+- A 1.0.x binary checkpoint is named as such in the load error instead of the
+  generic foreign-file message.
+- `make -C opencl` picks the Windows branch by uname too, not only by the OS
+  variable: a plain make in a clean MSYS2 shell no longer fails with an
+  "undefined reference to BCryptGenRandom".
+
+### Security
+- On Windows, checkpoints, hit files, stop reports and newly created job
+  folders get a protected owner-only DACL (the POSIX side already created them
+  0600/0700); other local users can no longer read the search key from a shared
+  directory.
+
+### Added
+- `tools/check_tr.py` with a CI step: every `tr()` pair must carry the same
+  printf conversion specifiers (221 pairs verified).
+- GPU-suite scenarios: bip39-24 end to end, a run from a foreign working
+  directory, failing-checkpoint reporting, and the ton-24 frontier refusal.
+
 ## [1.1.1] - 2026-11-08
 
 ### Added
@@ -110,7 +153,7 @@ wallet derives on import. The global changes relative to the original project:
 - CI on GitHub Actions (Linux + Windows) and tag-driven releases with ready archives.
 - Bilingual documentation (English/Russian) and runtime localization `--lang en|ru`.
 
-[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.1.1...HEAD
+[1.1.2]: https://github.com/noxyudev/gramvanity/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/noxyudev/gramvanity/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/noxyudev/gramvanity/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/noxyudev/gramvanity/compare/v1.0.1...v1.0.2
