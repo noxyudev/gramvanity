@@ -1043,6 +1043,11 @@ static int real_main(int argc, char **argv) {
 
     int real_search = !opt.bench && !opt.dump && !opt.list_devices;
     setup_search(real_search);
+    // EN: the Windows console-close handler saves state from its own thread once the paths are
+    // EN: known; the handler itself is installed later, in run_search_loop().
+    // RU: обработчик закрытия консоли Windows сохраняет состояние из своего потока, когда пути
+    // RU: уже известны; сам обработчик ставится позже, в run_search_loop().
+    set_emergency_save(save_all_and_report);
 
     init_gpu_and_selftest();
     int expected_active = 0;
