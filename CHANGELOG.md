@@ -6,6 +6,22 @@ All notable changes to gramvanity are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
+## [1.1.1] - 2026-11-08
+
+### Added
+
+- New `--checkpoint-merge --in CKPT [--in CKPT...] [--out DIR]` command: rebuilds one or more
+  checkpoints into a new checkpoint that keeps only the targets that have not reached their `--count`
+  yet. Each `--in` is a checkpoint file or a job folder; the merged file is written as
+  `job.checkpoint` in a new job folder (`--out DIR`, default `results/job-<UTC timestamp>`). Done
+  targets are dropped — their hits stay recoverable only from the original checkpoints
+  (`--reveal` there); the same target in several inputs combines by the per-field maximum; a reused
+  name with different patterns gets a `-2`, `-3...` suffix. The result is a new job: a fresh search
+  key, the position restarts from index 0 and the job counters are zeroed; the merged file stores no
+  `job_dir`, so its own folder is the job folder on resume.
+- The checkpoint writer omits empty `job_dir` and `out` lines (the merge relies on this;
+  `--checkpoint-fix` normalizes them away in hand-written files).
+
 ## [1.1.0] - 2026-11-08
 
 The checkpoint file becomes a hand-editable UTF-8 text format: edit it in any
@@ -94,6 +110,7 @@ wallet derives on import. The global changes relative to the original project:
 - CI on GitHub Actions (Linux + Windows) and tag-driven releases with ready archives.
 - Bilingual documentation (English/Russian) and runtime localization `--lang en|ru`.
 
-[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/noxyudev/gramvanity/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/noxyudev/gramvanity/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/noxyudev/gramvanity/compare/v1.0.1...v1.0.2
