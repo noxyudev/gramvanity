@@ -34,6 +34,10 @@ void ts_iso(char *buf, size_t n);
 // EN: Cryptographically secure randomness from the operating system.
 // RU: Криптостойкая случайность от операционной системы.
 void random_bytes(uint8_t *p, size_t n);
+// EN: The OS process id, for temp file names that cannot collide between two concurrent runs.
+// RU: Идентификатор процесса ОС - для имён временных файлов, которые не столкнутся у двух
+// RU: параллельных запусков.
+int process_id(void);
 int cpu_count(void);
 // EN: Directory that contains the executable (the tool lives in <root>/opencl/).
 // RU: Каталог, содержащий исполняемый файл (инструмент лежит в <root>/opencl/).

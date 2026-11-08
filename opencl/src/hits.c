@@ -150,7 +150,9 @@ static int run_verifier(const char *cmd_prefix, const char *phrase, char *uq, ch
     char tmp[4200];
     snprintf(tmp, sizeof tmp, "%s%cresults", root_dir, PATH_SEP);
     mkdir_p(tmp);
-    snprintf(tmp, sizeof tmp, "%s%cresults%cverify-%d.tmp", root_dir, PATH_SEP, PATH_SEP, (int)(now_sec() * 1000) % 100000);
+    // EN: the pid keeps the name unique across concurrent runs and leftover files of a crash
+    // RU: pid делает имя уникальным для параллельных запусков и не пересекается с файлами после сбоя
+    snprintf(tmp, sizeof tmp, "%s%cresults%cverify-%d.tmp", root_dir, PATH_SEP, PATH_SEP, process_id());
 #ifdef _WIN32
     char bash[MAX_PATH];
     if (!find_bash(bash, sizeof bash)) return 0;
