@@ -578,6 +578,23 @@ static void setup_search(int real_search) {
                        "--resume: следующий индекс + --tries переполняет 2^64"));
             det.end = e;
             det.has_end = 1;
+            // EN: the end must not fall behind the stage-1 frontier: the ton-24 survivors of
+            // [next, s1_next) regenerate past a smaller end, their hits are counted, and then
+            // ton_step rewinds det.next to the end - the work in [end, s1_next) is forgotten and
+            // re-searched (duplicate hit files) on the next extension. parse_text enforces
+            // s1_next <= end for the stored file; the re-scoped end must obey the same invariant.
+            // RU: конец не должен оказаться позади границы стадии 1: выжившие ton-24 из
+            // [next, s1_next) восстанавливаются за меньшим end, их хиты засчитываются, а затем
+            // ton_step откатывает det.next к концу - работа из [end, s1_next) забывается и при
+            // будущем расширении ищется заново (дубликаты hit-файлов). parse_text требует
+            // s1_next <= end для сохранённого файла; переопределённый end обязан соблюдать
+            // тот же инвариант.
+            if (det.s1_next > det.end)
+                die(tr("--resume: --tries %llu ends before the stage-1 frontier %llu "
+                       "(resume with a larger --tries or without it)",
+                       "--resume: --tries %llu заканчивается раньше границы стадии 1 %llu "
+                       "(возьмите больший --tries или продолжите без него)"),
+                    (unsigned long long)opt.tries, (unsigned long long)det.s1_next);
         }
         printf(tr("resuming %s search from index %llu (started at %llu, end %s)\n",
                   "продолжаем поиск %s с индекса %llu (начало %llu, конец %s)\n"),

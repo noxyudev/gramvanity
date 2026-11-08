@@ -134,6 +134,47 @@ if [ -n "$F1" ] && [ "$F1" -ge 40000 ] && [ "$F1" -le 90000 ]; then ok "ton stop
 "$BIN" --resume "$CK" --no-verify > "$TMP/t4b.log" 2>&1
 check "ton range completes after resume" "$(next_index "$CK")" "60500"
 
+echo "== T4b: --tries on resume cannot fall behind the stage-1 frontier (ton-24) =="
+# EN: kill -9 mid-stage-1 leaves next < s1_next in the checkpoint (the survivors of the gap are
+# EN: not stored). A resume whose --tries ends before that gap used to search past the end, count
+# EN: the hits, and then rewind det.next: the work was forgotten and would be duplicated on the
+# EN: next extension. Such a resume must be refused; a resume with a large enough --tries works.
+# RU: kill -9 посреди стадии 1 оставляет в checkpoint next < s1_next (выжившие из промежутка не
+# RU: сохраняются). Продолжение, чей --tries заканчивается раньше промежутка, раньше искало за
+# RU: пределами end, засчитывало хиты и откатывало det.next: работа забывалась и дублировалась
+# RU: при следующем расширении. Такое продолжение должно быть отклонено; продолжение с
+# RU: достаточным --tries работает.
+CK="$TMP/t4b.checkpoint"; OUT="$TMP/t4b-out"; rm -f "$CK"; rm -rf "$OUT"
+"$BIN" --mode ton-24 --suffix ZZZZZZ --start-offset 0 --tries 6000000 --checkpoint-interval 1 \
+       --no-verify --checkpoint "$CK" --out "$OUT" > "$TMP/t4ba.log" 2>&1 &
+T4B_PID=$!
+T4B_N=""; T4B_F=""
+for T4B_I in $(seq 1 100); do
+    sleep 0.3
+    T4B_N=$(next_index "$CK" 2>/dev/null)
+    T4B_F=$(frontier "$CK" 2>/dev/null)
+    [ -n "$T4B_N" ] && [ -n "$T4B_F" ] && [ "$T4B_F" -gt "$T4B_N" ] && break
+done
+kill -9 $T4B_PID 2>/dev/null
+wait $T4B_PID 2>/dev/null
+if [ -n "$T4B_N" ] && [ -n "$T4B_F" ] && [ "$T4B_F" -gt "$T4B_N" ]; then
+    T4B_W=$((T4B_F - T4B_N))
+    T4B_HALF=$((T4B_W / 2))
+    if [ "$T4B_HALF" -ge 1 ]; then
+        if "$BIN" --resume "$CK" --tries "$T4B_HALF" --no-verify > "$TMP/t4br.log" 2>&1; then
+            bad "resume --tries before the stage-1 frontier is refused"
+        else
+            ok "resume --tries before the stage-1 frontier is refused"
+        fi
+        grep -q "stage-1 frontier" "$TMP/t4br.log" \
+            && ok "the refusal names the stage-1 frontier" || bad "the refusal names the stage-1 frontier"
+    fi
+    "$BIN" --resume "$CK" --tries $((T4B_W + 60000)) --no-verify > "$TMP/t4bs.log" 2>&1
+    check "resume past the frontier completes the extended range" "$(next_index "$CK")" "$((T4B_F + 60000))"
+else
+    bad "kill -9 leaves a stage-1 gap in the checkpoint (next='$T4B_N' frontier='$T4B_F')"
+fi
+
 echo "== T5: multiple suffix alternatives (OR inside a group) =="
 CK="$TMP/t5.checkpoint"; OUT="$TMP/t5-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --suffix 'ZZZZZ' --suffix '[0-9A-Za-z_-]' --start-offset 0 --tries 100000 \
