@@ -69,6 +69,16 @@ void checkpoint_free(struct Checkpoint *in);
 // RU: раз и переиспользуются). Ничего не делает, если поиск не детерминированный.
 int checkpoint_save(void);
 
+// EN: Prints a one-line warning for a failed checkpoint_save(), at most once per autosave
+// EN: interval (a persistently failing save warns once per retry, not on every line of output).
+// EN: Call it only from the main-loop paths: the Windows console-control handler must not print
+// EN: from its thread.
+// RU: Печатает однострочное предупреждение о неудавшемся checkpoint_save(), не чаще одного раза
+// RU: за интервал автосохранения (постоянно отказывающая запись предупреждает раз за попытку,
+// RU: а не на каждой строке вывода). Вызывать только из путей главного цикла: обработчику
+// RU: консоли Windows печатать из своего потока нельзя.
+void checkpoint_save_warn(void);
+
 // EN: Reads and validates a checkpoint file into *in. Every line of the file is covered by the
 // EN: SHA-256 `checksum` line; a mismatch or a missing checksum is an error.
 // RU: Читает и проверяет файл checkpoint в *in. Каждая строка файла накрыта контрольной суммой

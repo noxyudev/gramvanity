@@ -125,6 +125,27 @@ else
     ok "binary file rejected as foreign"
 fi
 
+echo "== T3c: a failing checkpoint save is reported =="
+# EN: an explicit --checkpoint whose parent folder does not exist cannot be written. The search
+# EN: must keep going and finish its own stop path, but say so: once per autosave attempt and a
+# EN: final failure line instead of "checkpoint saved".
+# RU: явный --checkpoint в несуществующей папке записать нельзя. Поиск продолжает работу и
+# RU: доходит до своей остановки, но сообщает об этом: раз за попытку автосохранения и итоговой
+# RU: строкой о неудаче вместо "checkpoint saved".
+OUT="$TMP/t3c-out"; rm -rf "$TMP/t3c-missing" "$OUT"
+if "$BIN" --mode bip39-12 --suffix ZZZZZZ --start-offset 0 --tries 100000 --stop-after 3000 \
+       --checkpoint-interval 1 --no-verify --checkpoint "$TMP/t3c-missing/t3c.checkpoint" \
+       --out "$OUT" > "$TMP/t3c.log" 2>&1; then
+    ok "a run with an unwritable checkpoint still finishes"
+else
+    bad "a run with an unwritable checkpoint still finishes"
+fi
+grep -q "checkpoint save FAILED" "$TMP/t3c.log" \
+    && ok "the autosave failure is reported" || bad "the autosave failure is reported"
+grep -q "this session may not be resumable" "$TMP/t3c.log" \
+    && ok "the final save failure replaces the success line" || bad "the final save failure replaces the success line"
+ls "$OUT"/stop-* >/dev/null 2>&1 && ok "the stop report is still written" || bad "the stop report is still written"
+
 echo "== T4: ton-24 deterministic range with interruption =="
 CK="$TMP/t4.checkpoint"; OUT="$TMP/t4-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode ton-24 --suffix ZZZZZZ --start-offset 500 --tries 60000 --stop-after 40000 \

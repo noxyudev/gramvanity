@@ -418,6 +418,23 @@ int checkpoint_save(void) {
     return ok;
 }
 
+// EN: see checkpoint.h. The sentinel start makes the first warning print regardless of the
+// EN: CLOCK_MONOTONIC value (a fresh boot would otherwise suppress it for one interval).
+// RU: см. checkpoint.h. Стартовое значение-сентинел гарантирует печать первого предупреждения
+// RU: независимо от значения CLOCK_MONOTONIC (иначе после свежей загрузки оно подавлялось бы
+// RU: на один интервал).
+void checkpoint_save_warn(void) {
+    static double last_warn = -1e12;
+    double now = now_sec();
+    if (now - last_warn < (double)opt.checkpoint_interval) return;
+    last_warn = now;
+    fprintf(stderr,
+            tr("checkpoint save FAILED: %s (the search continues without a saved state; check the disk and the path)\n",
+               "запись checkpoint НЕ УДАЛАСЬ: %s (поиск продолжается без сохранённого состояния; проверьте диск и путь)\n"),
+            det.checkpoint_path);
+    fflush(stderr);
+}
+
 // ---------------------------------------------------------------- parsing
 
 // EN: per-target accumulation during parsing; flushed into in->targets at the section end. Strings

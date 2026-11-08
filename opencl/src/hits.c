@@ -762,9 +762,10 @@ static void write_stop_file(const char *reason) {
 // RU: и из обработчиков сигналов; finish_lock вместе с g_finished гарантируют один запуск.
 // RU: Обработчик сигнала не должен печатать, поэтому при in_handler сводка в консоль не выводится.
 void save_all_and_report(const char *reason, int in_handler) {
+    int save_failed = 0;
     mutex_lock(&finish_lock);
     if (!g_finished) {
-        if (det.enabled && !opt.dump) checkpoint_save();
+        if (det.enabled && !opt.dump) save_failed = checkpoint_save() != 0;
         if (!opt.dump && !opt.bench) write_stop_file(reason);
         g_finished = 1;
     }
@@ -772,10 +773,20 @@ void save_all_and_report(const char *reason, int in_handler) {
     if (in_handler) return;
     if (!opt.dump && !opt.bench) {
         printf(tr("stopped: %s\n", "остановлено: %s\n"), reason);
-        if (det.enabled && det.checkpoint_path[0])
-            printf(tr("checkpoint saved: %s\nresume with: ./gramvanity --resume \"%s\"\n",
-                      "checkpoint сохранён: %s\nпродолжить: ./gramvanity --resume \"%s\"\n"),
-                   det.checkpoint_path, det.checkpoint_path);
+        if (det.enabled && det.checkpoint_path[0]) {
+            // EN: the final save is the last chance to persist the state: a failure must be
+            // EN: visible, not only the success.
+            // RU: финальная запись — последний шанс сохранить состояние: неудача должна быть
+            // RU: видна, а не только успех.
+            if (save_failed)
+                printf(tr("checkpoint save FAILED: %s (this session may not be resumable)\n",
+                          "запись checkpoint НЕ УДАЛАСЬ: %s (сессия может не возобновиться)\n"),
+                       det.checkpoint_path);
+            else
+                printf(tr("checkpoint saved: %s\nresume with: ./gramvanity --resume \"%s\"\n",
+                          "checkpoint сохранён: %s\nпродолжить: ./gramvanity --resume \"%s\"\n"),
+                       det.checkpoint_path, det.checkpoint_path);
+        }
         if (g_stop_path[0])
             printf(tr("session report: %s\n", "отчёт сессии: %s\n"), g_stop_path);
     }

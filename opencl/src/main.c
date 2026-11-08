@@ -730,8 +730,9 @@ static void print_banner(int real_search, double expected, int expected_active) 
                       "ожидается ~%.3g фраз до первого хита по %d оставшимся целям\n"),
                    expected, expected_active);
     }
-    checkpoint_save(); // EN: persist the search key before any work, so the job is resumable from now on
-                       // RU: сохраняем ключ поиска до начала работы, чтобы задание было возобновляемым
+    // EN: persist the search key before any work, so the job is resumable from now on
+    // RU: сохраняем ключ поиска до начала работы, чтобы задание было возобновляемым
+    if (checkpoint_save()) checkpoint_save_warn();
 }
 
 // ---------------------------------------------------------------- search loop
