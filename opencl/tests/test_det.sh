@@ -79,6 +79,31 @@ if [ -n "$NEW" ]; then
     grep -q "tonutils-go OK" "$HIT" && ok "independent verifier ran" || ok "verifier absent, CPU re-derivation only"
 fi
 
+echo "== T2b: bip39-24 hit, replay, word count =="
+# EN: the 24-word BIP39 pipeline shares the address math but has its own entropy length and
+# EN: phrase width; the GPU suite otherwise covers bip39-12, ton-24 and tg-wallet only.
+# RU: 24-словный конвейер BIP39 делит адресную математику, но имеет свою длину энтропии и фразу;
+# RU: остальной набор покрывает только bip39-12, ton-24 и tg-wallet.
+CK="$TMP/t2b.checkpoint"; OUT="$TMP/t2b-out"; rm -f "$CK"; rm -rf "$OUT"
+"$BIN" --mode bip39-24 --suffix '[0-9A-Za-z_-]' --start-offset 0 --tries 100000000 --count 1 $NOVERIFY \
+       --checkpoint "$CK" --out "$OUT" > "$TMP/t2b.log" 2>&1
+NEW2B=$(ls "$OUT" 2>/dev/null | grep '^hit-' | head -1)
+if [ -n "$NEW2B" ]; then
+    KEY2B=$(grep -o 'derive [0-9a-f]\{64\}' "$OUT/$NEW2B" | grep -o '[0-9a-f]\{64\}')
+    IDX2B=$(grep -o 'candidate index: [0-9]*' "$OUT/$NEW2B" | grep -o '[0-9]*')
+    A_HIT2B=$(grep -o 'address UQ[^:]*: [A-Za-z0-9_-]\{48\}' "$OUT/$NEW2B" | grep -o '[A-Za-z0-9_-]\{48\}')
+    A_DER2B=$("$BIN" --mode bip39-24 --derive "$KEY2B" "$IDX2B" | grep -o 'address UQ: [A-Za-z0-9_-]\{48\}' | grep -o '[A-Za-z0-9_-]\{48\}')
+    check "bip39-24 --derive replays the address" "$A_DER2B" "$A_HIT2B"
+    A_REV2B=$("$BIN" --reveal "$CK" "$IDX2B" | grep -o 'address UQ: [A-Za-z0-9_-]\{48\}' | grep -o '[A-Za-z0-9_-]\{48\}')
+    check "bip39-24 --reveal replays the address" "$A_REV2B" "$A_HIT2B"
+    NW2B=$("$BIN" --mode bip39-24 --derive "$KEY2B" "$IDX2B" | grep 'phrase (SECRET' | sed 's/.*: //' | wc -w | tr -d ' ')
+    check "bip39-24 phrase has 24 words" "$NW2B" "24"
+else
+    bad "bip39-24 hit file"
+fi
+"$BIN" --checkpoint-info "$CK" | grep -q "mode bip39-24" \
+    && ok "bip39-24 survives the checkpoint" || bad "bip39-24 survives the checkpoint"
+
 echo "== T3: corrupted / conflicting checkpoints =="
 CK="$TMP/t3.checkpoint"; OUT="$TMP/t3-out"; rm -f "$CK"; rm -rf "$OUT"
 "$BIN" --mode bip39-12 --suffix ZZZZZZ --start-offset 0 --tries 100000 --stop-after 40000 \
@@ -595,6 +620,14 @@ if "$BIN" --checkpoint-merge --in "$CKA" --in "$CKC" --out "$MOUT2" > "$TMP/t12x
     bad "merge rejects mixed modes"
 else
     ok "merge rejects mixed modes"
+fi
+# EN: an input job folder without job.checkpoint is a load error, not a silent empty merge
+# RU: папка задания без job.checkpoint - ошибка загрузки, а не тихое пустое слияние
+T12EMPTY="$TMP/t12-empty"; rm -rf "$T12EMPTY"; mkdir -p "$T12EMPTY"
+if "$BIN" --checkpoint-merge --in "$T12EMPTY" --out "$TMP/t12-merged-empty" > "$TMP/t12e.log" 2>&1; then
+    bad "merge rejects an input folder without job.checkpoint"
+else
+    ok "merge rejects an input folder without job.checkpoint"
 fi
 # EN: without --out the merged job folder follows the default results/job-<timestamp> rule
 # RU: без --out папка объединённого задания подчиняется правилу results/job-<метка> по умолчанию
