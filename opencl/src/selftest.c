@@ -499,6 +499,8 @@ static void det_unit_tests(void) {
         }
     }
     tcheck(checkpoint_load(path, &in, err, sizeof err) == -1, "checkpoint: binary file rejected as foreign");
+    tcheck(strstr(err, "1.0.x") != NULL,
+           "checkpoint: the 1.0.x binary format is named in the error");
     // EN: hand-built minimal files: the pairing of pattern and per-pattern hits lines. The checksum
     // EN: is the last significant line and covers every line before it.
     // RU: собранные вручную минимальные файлы: пары строк шаблон/хиты. Контрольная сумма — последняя
