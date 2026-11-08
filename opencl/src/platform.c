@@ -139,6 +139,14 @@ void random_bytes(uint8_t *p, size_t n) {
 #endif
 }
 
+int process_id(void) {
+#ifdef _WIN32
+    return (int)_getpid();
+#else
+    return (int)getpid();
+#endif
+}
+
 int cpu_count(void) {
 #ifdef _WIN32
     SYSTEM_INFO si;
@@ -154,6 +162,18 @@ void exe_dir(char *out, size_t n) {
     char p[4096] = {0};
 #if defined(_WIN32)
     GetModuleFileNameA(NULL, p, sizeof p - 1);
+    // EN: GetModuleFileNameA returns backslashes while every exe_dir consumer joins with
+    // EN: PATH_SEP ('/'). Normalize, so the trailing-name cut below actually finds the
+    // EN: separator: without it exe_dir returned "." and real_main turned that into "..",
+    // EN: breaking the verifier path and the default results folder for any working
+    // EN: directory other than opencl/.
+    // RU: GetModuleFileNameA возвращает обратные слеши, а все пользователи exe_dir склеивают
+    // RU: пути через PATH_SEP ('/'). Нормализуем, чтобы срез имени ниже вообще нашёл
+    // RU: разделитель: без этого exe_dir возвращал ".", real_main превращал его в "..", и путь
+    // RU: к верификатору и папка results по умолчанию ломались для любого рабочего каталога,
+    // RU: кроме opencl/.
+    for (char *t = p; *t; t++)
+        if (*t == (char)92) *t = '/'; /* EN: 92 = backslash, see the comment above | RU: 92 = обратная косая черта, см. комментарий выше */
 #else
     ssize_t r = readlink("/proc/self/exe", p, sizeof p - 1);
     if (r <= 0) strcpy(p, "./x");
