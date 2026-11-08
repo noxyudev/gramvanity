@@ -341,7 +341,7 @@ void parallel(int nt, void (*fn)(void *, int, int), void *ctx) {
 
 volatile sig_atomic_t g_stop; // EN: 1 = Ctrl+C-ish (graceful), 2 = console close / shutdown
                               // RU: 1 = подобие Ctrl+C (мягко), 2 = закрытие консоли / выключение
-int g_finished;               // EN: stop files written (guarded by finish_lock)
+volatile int g_finished;      // EN: stop files written (guarded by finish_lock)
                               // RU: stop-файлы записаны (под finish_lock)
 
 // EN: The console-close handler calls this to save state from its own thread; main wires it to

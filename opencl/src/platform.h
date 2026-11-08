@@ -69,8 +69,11 @@ void parallel(int nt, void (*fn)(void *, int, int), void *ctx);
 // EN: Stop flags. g_stop: 1 = Ctrl+C-ish (graceful), 2 = console close / shutdown.
 // RU: Флаги остановки. g_stop: 1 = подобие Ctrl+C (мягко), 2 = закрытие консоли / выключение.
 extern volatile sig_atomic_t g_stop;
-// EN: stop files written (guarded by finish_lock) | RU: stop-файлы записаны (под finish_lock)
-extern int g_finished;
+// EN: stop files written (guarded by finish_lock); volatile: the Windows console-close handler
+// EN: polls it from its own thread while the main thread writes it.
+// RU: stop-файлы записаны (под finish_lock); volatile: обработчик закрытия консоли Windows
+// RU: опрашивает её из своего потока, пока главный поток пишет.
+extern volatile int g_finished;
 void install_signal_handlers(void);
 // EN: The Windows console-close handler must save state from its own thread; main wires this hook to
 // EN: save_all_and_report() once the paths are known, keeping platform.c free of higher layers.

@@ -14,11 +14,14 @@
 #endif
 #endif
 
-#ifdef _WIN32
+// EN: Both platforms accept '/' in paths, so one separator constant is enough; only the
+// EN: verifier's executable name differs.
+// RU: Обе платформы принимают '/' в путях, поэтому одной константы разделителя достаточно;
+// RU: различается только имя исполняемого файла верификатора.
 #define PATH_SEP '/'
+#ifdef _WIN32
 #define W5ADDR_CLI "../verify-go/w5addr.exe"
 #else
-#define PATH_SEP '/'
 #define W5ADDR_CLI "../verify-go/w5addr"
 #endif
 
