@@ -10,3 +10,4 @@ verify-go/w5addr.exe
 .zcode/
 logo.png
 preview.png
+__pycache__/
