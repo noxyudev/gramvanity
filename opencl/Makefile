@@ -33,7 +33,7 @@ ifeq ($(WINBUILD),1)
   ifeq ($(origin CC),default)
     CC = gcc
   endif
-  LIBS = -lOpenCL -lbcrypt -static-libgcc
+  LIBS = -lOpenCL -lbcrypt -ladvapi32 -static-libgcc
   EXE = .exe
 else
   LIBS = -lOpenCL -lpthread -lm

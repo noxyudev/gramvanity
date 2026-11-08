@@ -15,6 +15,7 @@
 #include <time.h>
 
 #ifdef _WIN32
+#include <aclapi.h>
 #include <bcrypt.h>
 #include <fcntl.h>
 #include <io.h>
@@ -27,6 +28,9 @@
 #endif
 #ifdef __linux__
 #include <sys/random.h>
+#endif
+#ifdef _WIN32
+static void restrict_to_current_user(const char *path); // EN: defined below | RU: определена ниже
 #endif
 
 __attribute__((noreturn)) void die(const char *fmt, ...) {
@@ -185,7 +189,9 @@ void exe_dir(char *out, size_t n) {
 
 void make_dir(const char *dir) {
 #ifdef _WIN32
-    CreateDirectoryA(dir, NULL);
+    // EN: restrict only a directory this call actually created (the POSIX mkdir already uses 0700)
+    // RU: ограничиваем только каталог, созданный этим вызовом (POSIX mkdir уже использует 0700)
+    if (CreateDirectoryA(dir, NULL)) restrict_to_current_user(dir);
 #else
     mkdir(dir, 0700);
 #endif
@@ -214,6 +220,47 @@ void mkdir_p(const char *dir) {
     make_dir(tmp);
 }
 
+#ifdef _WIN32
+// EN: Best-effort "owner-only" ACL for a freshly created secret file or job directory: replace
+// EN: the inherited DACL with a single grant to this process's user, protected so that parent
+// EN: inheritance cannot leak the access back in. The POSIX side enforces 0600/0700 at creation;
+// EN: this gives Windows the same guarantee as far as NTFS allows. Failures are ignored on
+// EN: purpose: on FAT or unusual setups the path simply keeps its default ACL, like before.
+// RU: Best-effort ACL "только владелец" для свежесозданного секретного файла или папки задания:
+// RU: заменяем унаследованный DACL единственным разрешением для пользователя процесса, защищённо
+// RU: (protected), чтобы наследование от родителей не вернуло доступ. POSIX обеспечивает 0600/0700
+// RU: при создании; это даёт Windows ту же гарантию, насколько позволяет NTFS. Сбои игнорируются
+// RU: намеренно: на FAT или необычных конфигурациях путь просто сохраняет ACL по умолчанию.
+static void restrict_to_current_user(const char *path) {
+    HANDLE tok = NULL;
+    DWORD len = 0;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &tok)) return;
+    GetTokenInformation(tok, TokenUser, NULL, 0, &len);
+    if (!len) { CloseHandle(tok); return; }
+    TOKEN_USER *tu = malloc(len);
+    DWORD got = 0;
+    BOOL ok = tu && GetTokenInformation(tok, TokenUser, tu, len, &got);
+    CloseHandle(tok);
+    if (!ok) { free(tu); return; }
+    EXPLICIT_ACCESSA ea;
+    ZeroMemory(&ea, sizeof ea);
+    ea.grfAccessPermissions = GENERIC_ALL;
+    ea.grfAccessMode = GRANT_ACCESS;
+    ea.grfInheritance = SUB_CONTAINERS_AND_OBJECTS_INHERIT;
+    ea.Trustee.TrusteeForm = TRUSTEE_IS_SID;
+    ea.Trustee.TrusteeType = TRUSTEE_IS_USER;
+    ea.Trustee.ptstrName = (LPSTR)tu->User.Sid;
+    PACL dacl = NULL;
+    if (SetEntriesInAclA(1, &ea, NULL, &dacl) == ERROR_SUCCESS) {
+        SetNamedSecurityInfoA((char *)path, SE_FILE_OBJECT,
+                              DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                              NULL, NULL, dacl, NULL);
+        LocalFree(dacl);
+    }
+    free(tu);
+}
+#endif
+
 int write_new_secret(const char *path, const uint8_t *data, size_t len) {
 #ifdef _WIN32
     int fd = _open(path, _O_WRONLY | _O_CREAT | _O_EXCL | _O_BINARY, _S_IREAD | _S_IWRITE);
@@ -221,6 +268,7 @@ int write_new_secret(const char *path, const uint8_t *data, size_t len) {
     int ok = (size_t)_write(fd, data, (unsigned)len) == len;
     _commit(fd);
     _close(fd);
+    restrict_to_current_user(path); // EN: even a partially written file holds secrets | RU: даже недописанный файл хранит секреты
     return ok ? 0 : -1;
 #else
     int fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0600);
@@ -246,6 +294,7 @@ int write_file_atomic(const char *path, const uint8_t *data, size_t len) {
     }
     _commit(fd);
     _close(fd);
+    restrict_to_current_user(tmp); // EN: the ACL travels with the rename | RU: ACL переезжает вместе с переименованием
     if (!MoveFileExA(tmp, path, MOVEFILE_REPLACE_EXISTING)) { _unlink(tmp); return -1; }
 #else
     int fd = open(tmp, O_WRONLY | O_CREAT | O_TRUNC, 0600);
