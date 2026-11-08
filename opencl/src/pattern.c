@@ -478,12 +478,14 @@ static int match_side(const uint64_t *tab, const uint64_t *lenm, const uint64_t 
                       uint32_t maxlen, const char *addr, int from_end,
                       uint32_t *ids, int cap, int *n_ids, int *overflow) {
     if (!maxlen) return 0;
-    // EN: a fixed buffer covers up to 4096 patterns (m_words <= 64); the heap handles anything
-    // EN: beyond, so the hot per-candidate path stays allocation-free in realistic setups.
-    // RU: фиксированный буфер покрывает до 4096 шаблонов (m_words <= 64); сверх этого куча,
-    // RU: поэтому горячий покандидатный путь остаётся без выделений в реалистичных конфигурациях.
-    uint64_t stack_alive[64];
-    uint64_t *alive = m_words <= 64 ? stack_alive : malloc((size_t)m_words * 8);
+    // EN: a fixed buffer covers up to 16384 patterns (m_words <= 256, 2 KB of stack); the heap
+    // EN: handles anything beyond, so the hot per-candidate path stays allocation-free for any
+    // EN: configuration the tables can plausibly hold.
+    // RU: фиксированный буфер покрывает до 16384 шаблонов (m_words <= 256, 2 КБ стека); сверх
+    // RU: этого куча, поэтому горячий покандидатный путь остаётся без выделений при любой
+    // RU: конфигурации, которую таблицы разумно вмещают.
+    uint64_t stack_alive[256];
+    uint64_t *alive = m_words <= 256 ? stack_alive : malloc((size_t)m_words * 8);
     if (!alive) die(tr("out of memory", "не хватает памяти"));
     memcpy(alive, allm, (size_t)m_words * 8);
     int any = 0;

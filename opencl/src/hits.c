@@ -603,11 +603,13 @@ void finish(const int *idx, int nw, const uint8_t priv[32], const uint8_t pub_gp
         return;
     }
     if (n_targets) {
-        // EN: a fixed buffer keeps the per-candidate path allocation-free; the heap covers
-        // EN: absurd target counts instead of an unbounded stack frame (VLA is optional in C11).
-        // RU: фиксированный буфер держит покандидатный путь без выделений; куча покрывает
-        // RU: абсурдные числа целей вместо неограниченного кадра стека (VLA опциональны в C11).
-        uint8_t stack_matched[256];
+        // EN: a fixed buffer keeps the per-candidate path allocation-free for up to 1024 targets
+        // EN: (1 KB of stack); the heap covers anything beyond instead of an unbounded stack
+        // EN: frame (VLA is optional in C11).
+        // RU: фиксированный буфер держит покандидатный путь без выделений до 1024 целей
+        // RU: (1 КБ стека); сверх этого куча вместо неограниченного кадра стека (VLA
+        // RU: опциональны в C11).
+        uint8_t stack_matched[1024];
         uint8_t *matched = n_targets <= (int)sizeof stack_matched
                                ? stack_matched
                                : malloc((size_t)n_targets);
