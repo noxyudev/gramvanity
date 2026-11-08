@@ -937,6 +937,15 @@ static void det_unit_tests(void) {
         static const char *const PRE[] = {"QQ", "U[0-9]", "_[Pp]a", "AB[C-F]", "Z"};
         static const char *const SUF[] = {"ZZZZZ", "[0-9]", "_[Pp]auper", "7", "[a-m][n-z]A", "TELEGRAM", "_PASHA"};
         static const char ALPHA[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+        // EN: reset the table first: without this the one-target leftovers of the tests above
+        // EN: stay in front, n_targets grows to 301 against the 300-byte m1/m2 buffers below,
+        // EN: the fast path overruns them for the 301st target, and GRAMVANITY_MATCHER_CHECK=1
+        // EN: (a 301-byte memcmp) dies on a stale bit.
+        // RU: сначала сбрасываем таблицу: без этого впереди остаются цели предыдущих тестов,
+        // RU: n_targets доходит до 301 против 300-байтных буферов m1/m2 ниже, быстрый путь
+        // RU: пишет за их границу для 301-й цели, а GRAMVANITY_MATCHER_CHECK=1 (memcmp на
+        // RU: 301 байт) падает на устаревшем бите.
+        n_targets = 0;
         for (int k = 0; k < 300; k++) {
             Target *t = new_target();
             snprintf(t->name, sizeof t->name, "M%d", k);
