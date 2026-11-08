@@ -456,7 +456,7 @@ static uint32_t m_suf_maxlen, m_pre_maxlen;
 static uint64_t *m_suf_tab, *m_pre_tab; // EN: [depth][char][word] | RU: [глубина][символ][слово]
 static uint64_t *m_suf_len, *m_pre_len; // EN: [len][word]: patterns of exactly this length | RU: [длина][слово]: шаблоны ровно этой длины
 static uint64_t *m_suf_all, *m_pre_all; // EN: all suffix/prefix patterns | RU: все шаблоны окончаний/префиксов
-static uint16_t *m_pat_target;          // EN: pattern id -> target index | RU: id шаблона -> индекс цели
+static uint32_t *m_pat_target;          // EN: pattern id -> target index | RU: id шаблона -> индекс цели
 static uint8_t *m_pat_suf;              // EN: pattern id -> 1 = suffix group | RU: id шаблона -> 1 = группа окончаний
 static int m_check;                     // EN: GRAMVANITY_MATCHER_CHECK=1: cross-check every result | RU: сверять каждый результат
 
@@ -476,7 +476,7 @@ static void match_char_idx_init(void) {
 // RU: from_end: глубина d читает addr[47-d] (группа окончаний), иначе addr[2+d] (группа префиксов).
 static int match_side(const uint64_t *tab, const uint64_t *lenm, const uint64_t *allm,
                       uint32_t maxlen, const char *addr, int from_end,
-                      uint16_t *ids, int cap, int *n_ids, int *overflow) {
+                      uint32_t *ids, int cap, int *n_ids, int *overflow) {
     if (!maxlen) return 0;
     uint64_t alive[m_words];
     memcpy(alive, allm, (size_t)m_words * 8);
@@ -497,7 +497,7 @@ static int match_side(const uint64_t *tab, const uint64_t *lenm, const uint64_t 
                 int b = __builtin_ctzll(f);
                 f &= f - 1;
                 any = 1;
-                if (*n_ids < cap) ids[(*n_ids)++] = (uint16_t)(w * 64 + b);
+                if (*n_ids < cap) ids[(*n_ids)++] = (uint32_t)(w * 64 + b);
                 else *overflow = 1;
             }
         }
@@ -561,7 +561,7 @@ void targets_match_build(void) {
             const Pattern *pats = is_suf ? t->suf : t->pre;
             for (int k = 0; k < n; k++, g++) {
                 const Pattern *p = &pats[k];
-                m_pat_target[g] = (uint16_t)i;
+                m_pat_target[g] = (uint32_t)i;
                 m_pat_suf[g] = (uint8_t)is_suf;
                 uint64_t *lenm = is_suf ? m_suf_len : m_pre_len;
                 lenm[(size_t)p->len * m_words + (g >> 6)] |= 1ull << (g & 63);
@@ -594,7 +594,11 @@ int targets_match_all(const char addr[49], uint8_t *matched) {
             }
         return any;
     }
-    uint16_t ids[MATCH_IDS];
+    // EN: pattern/target ids are 32-bit on purpose: the arrays stay exact for any pattern count
+    // EN: the tables can physically hold, with no silent truncation at 65535.
+    // RU: id шаблонов/целей намеренно 32-битные: массивы точны при любом числе шаблонов,
+    // RU: которое физически вмещают таблицы, без молчаливого усечения на 65535.
+    uint32_t ids[MATCH_IDS];
     int n_ids = 0, overflow = 0;
     int full = match_side(m_suf_tab, m_suf_len, m_suf_all, m_suf_maxlen, addr, 1, ids, MATCH_IDS, &n_ids, &overflow);
     full |= match_side(m_pre_tab, m_pre_len, m_pre_all, m_pre_maxlen, addr, 0, ids, MATCH_IDS, &n_ids, &overflow);
@@ -614,11 +618,11 @@ int targets_match_all(const char addr[49], uint8_t *matched) {
     // EN: counts only when its own AND/OR combination is satisfied, exactly like target_matches().
     // RU: редкий путь: возвращаем совпавшие шаблоны к целям и применяем правило групп. Цель засчитывается
     // RU: только при выполнении её комбинации AND/OR — ровно как в target_matches().
-    uint16_t ut[MATCH_IDS];
+    uint32_t ut[MATCH_IDS];
     uint8_t uf[MATCH_IDS]; // EN: bit 0 = a prefix matched, bit 1 = a suffix matched | RU: бит 0 = совпал префикс, бит 1 = совпало окончание
     int nu = 0;
     for (int j = 0; j < n_ids; j++) {
-        uint16_t tg = m_pat_target[ids[j]];
+        uint32_t tg = m_pat_target[ids[j]];
         int u = -1;
         for (int q = 0; q < nu; q++)
             if (ut[q] == tg) { u = q; break; }
