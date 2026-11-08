@@ -16,7 +16,20 @@ CFLAGS ?= -O3 -Wall -Wextra -Wno-unused-parameter -Wno-format-truncation
 # EN: files: every build compiles the whole SRC list into a single binary.
 # RU: Библиотеки линковки и суффикс исполняемого файла для каждой платформы. Makefile не создаёт
 # RU: объектных файлов: каждая сборка компилирует весь список SRC в один бинарник.
+# EN: Windows when the environment declares it (build-windows.sh exports OS=Windows_NT) or when
+# EN: uname reports an MSYS2/MINGW host, so a plain `make` works in a clean MSYS2 shell too;
+# EN: everything else takes the Linux branch.
+# RU: Windows, когда об этом говорит окружение (build-windows.sh экспортирует OS=Windows_NT),
+# RU: или когда uname сообщает о хосте MSYS2/MINGW, поэтому обычный `make` работает и в чистой
+# RU: оболочке MSYS2; всё остальное собирается по Linux-ветке.
+UNAME := $(shell uname -s 2>/dev/null)
 ifeq ($(OS),Windows_NT)
+  WINBUILD = 1
+else ifneq (,$(findstring NT,$(UNAME)))
+  WINBUILD = 1
+endif
+
+ifeq ($(WINBUILD),1)
   ifeq ($(origin CC),default)
     CC = gcc
   endif
