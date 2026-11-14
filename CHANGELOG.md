@@ -6,6 +6,13 @@ All notable changes to gramvanity are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
+## [1.1.3] - 2026-11-15
+
+### Fixed
+- Prefixes whose first character cannot occur after the form tag are rejected at startup; prefix expectations now use the correct four-character first domain instead of 64.
+- Invalid startup arguments, malformed patterns, failed merges and GPU self-test failures no longer leave empty job folders. Failed atomic writes remove their temporary files, and a successful deterministic self-test removes its empty job folder.
+- `--net testnet` is rejected before command-specific setup unless the mode is restored from a resume checkpoint.
+
 ## [1.1.2] - 2026-11-08
 
 A correctness and hardening release: the Windows emergency save, resumability
@@ -153,7 +160,10 @@ wallet derives on import. The global changes relative to the original project:
 - CI on GitHub Actions (Linux + Windows) and tag-driven releases with ready archives.
 - Bilingual documentation (English/Russian) and runtime localization `--lang en|ru`.
 
+[1.1.3]: https://github.com/noxyudev/gramvanity/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/noxyudev/gramvanity/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/noxyudev/gramvanity/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/noxyudev/gramvanity/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/noxyudev/gramvanity/compare/v1.0.1...v1.0.2
+[1.0.1]: https://github.com/noxyudev/gramvanity/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/necrovolt/seedvanity/compare/main...noxyudev:gramvanity:v1.0.0

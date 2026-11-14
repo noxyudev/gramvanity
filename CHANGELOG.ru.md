@@ -6,6 +6,13 @@
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/); версии — по
 [SemVer](https://semver.org/).
 
+## [1.1.3] - 2026-11-15
+
+### Исправлено
+- Префиксы, первый символ которых невозможен после тега формы, отклоняются на старте; ожидание префиксов теперь использует корректный домен из четырёх первых символов вместо 64.
+- Ошибочные параметры запуска, шаблоны, объединение checkpoint и GPU self-test больше не оставляют пустых папок заданий. Неудачная атомарная запись удаляет временный файл, а успешный детерминированный self-test удаляет свою пустую папку.
+- `--net testnet` отклоняется до настройки команды, если режим не восстанавливается из checkpoint resume.
+
 ## [1.1.2] - 2026-11-08
 
 Релиз корректности и защиты: аварийное сохранение Windows, диагностика
@@ -156,7 +163,10 @@
 - CI на GitHub Actions (Linux + Windows) и релизы по тегу с готовыми архивами.
 - Двуязычная документация (английский/русский) и локализация `--lang en|ru`.
 
+[1.1.3]: https://github.com/noxyudev/gramvanity/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/noxyudev/gramvanity/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/noxyudev/gramvanity/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/noxyudev/gramvanity/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/noxyudev/gramvanity/compare/v1.0.1...v1.0.2
+[1.0.1]: https://github.com/noxyudev/gramvanity/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/necrovolt/seedvanity/compare/main...noxyudev:gramvanity:v1.0.0
