@@ -296,6 +296,9 @@ static void validate_args(void) {
     if (opt.checkpoint_merge && !opt.n_merge_ins)
         die(tr("--checkpoint-merge needs at least one --in input (see --help)",
                "--checkpoint-merge нужен хотя бы один вход --in (см. --help)"));
+    if (opt.testnet && opt.mode != TG && !opt.resume[0])
+        die(tr("--net testnet is only supported for --mode tg-wallet",
+               "--net testnet поддерживается только с --mode tg-wallet"));
 }
 
 // ---------------------------------------------------------------- CPU-only utility modes
@@ -492,9 +495,6 @@ static int cmd_reveal(void) {
 // EN: --derive KEYHEX INDEX: derive and print the candidate for an explicit search key.
 // RU: --derive KEYHEX INDEX: вывести и напечатать кандидата для явно заданного ключа поиска.
 static int cmd_derive(void) {
-    if (opt.testnet && opt.mode != TG)
-        die(tr("--net testnet is only supported for --mode tg-wallet",
-               "--net testnet поддерживается только с --mode tg-wallet"));
     uint8_t key[32];
     if (strlen(opt.derive_key) != 64)
         die(tr("--derive KEYHEX must be 64 hex characters",
@@ -647,9 +647,6 @@ static void setup_search(int real_search) {
     // RU: сопоставления по всем целям для finish()
     targets_match_build();
 
-    if (opt.testnet && opt.mode != TG)
-        die(tr("--net testnet is only supported for --mode tg-wallet",
-               "--net testnet поддерживается только с --mode tg-wallet"));
 
     // EN: A resumed checkpoint may already hold every requested hit. Without this check every new hit
     // EN: would be dropped and the search would never stop. Unlimited targets keep the job running.
