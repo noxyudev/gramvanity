@@ -3,6 +3,7 @@
 #include "sv.h"
 #include "pattern.h"
 #include "stats.h"
+#include <math.h>
 
 int verified, skipped;
 int hits_found;
@@ -66,5 +67,5 @@ double expected_tries_remaining(int *active_out) {
     }
     mutex_unlock(&stat_lock);
     if (active_out) *active_out = active;
-    return miss < 1 ? 1 / (1 - miss) : 1;
+    return miss < 1 ? 1 / (1 - miss) : INFINITY;
 }

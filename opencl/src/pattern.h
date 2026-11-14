@@ -108,6 +108,10 @@ void target_names_resolve(void);
 // RU: Применяет глобальные значения целей по умолчанию (count, ignore-case, папка задания) и компилирует
 // RU: шаблоны. Папка задания должна быть уже окончательной.
 void targets_prepare(void);
+// EN: A prefix is possible only if its first position accepts A, B, C or D.
+// RU: Префикс возможен, только если его первая позиция допускает A, B, C или D.
+int pattern_possible(const Pattern *p);
+void targets_validate(void);
 int pattern_matches(const Pattern *p, const char addr[49]);
 // EN: A normal target needs one matching prefix (if it has prefixes) AND one matching suffix (if it has
 // EN: suffixes). --match or relaxes this: one of the two groups suffices.

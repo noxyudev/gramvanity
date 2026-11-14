@@ -880,7 +880,7 @@ static void det_unit_tests(void) {
     snprintf(t->name, sizeof t->name, "ORMODE");
     t->has_prefix = t->has_suffix = 1;
     t->match_or = 1;
-    strlist_add(&t->prefix, "QQ", 2);
+    strlist_add(&t->prefix, "AA", 2);
     strlist_add(&t->suffix, "7", 1);
     target_compile(t);
     double p_or = target_probability(t);
@@ -889,7 +889,7 @@ static void det_unit_tests(void) {
     t->match_or = 1;
     tcheck(p_or > p_and && p_or < 1, "stats: --match or has a higher hit probability than AND");
     memset(addr, 'A', 48);
-    strcpy(addr + 2, "QQ");
+    strcpy(addr + 2, "AA");
     addr[47] = '7';
     tcheck(target_matches(t, addr), "targets: --match or matches prefix and suffix");
     addr[47] = '8';
@@ -898,7 +898,57 @@ static void det_unit_tests(void) {
     memset(addr + 2, 'A', 2);
     tcheck(target_matches(t, addr), "targets: --match or matches the suffix alone");
     addr[47] = '8';
+    strcpy(addr + 2, "QQ");
     tcheck(!target_matches(t, addr), "targets: --match or still needs one group to match");
+    // EN: prefix position zero has four possible values; dead prefixes have infinite expectation
+    // RU: первая позиция префикса имеет четыре возможных значения; ожидание мёртвого префикса бесконечно
+    static const char *const live_pre[] = {"A", "B", "C", "D", "[A-D]x"};
+    static const char *const dead_pre[] = {"1", "_", "Q", "a", "[0-9]"};
+    for (int k = 0; k < 5; k++) {
+        n_targets = 0;
+        t = new_target();
+        t->has_prefix = 1;
+        strlist_add(&t->prefix, live_pre[k], strlen(live_pre[k]));
+        target_compile(t);
+        tcheck(pattern_possible(&t->pre[0]), "stats: A-D prefix is possible");
+        n_targets = 0;
+        t = new_target();
+        t->has_prefix = 1;
+        strlist_add(&t->prefix, dead_pre[k], strlen(dead_pre[k]));
+        target_compile(t);
+        tcheck(!pattern_possible(&t->pre[0]), "stats: prefix outside A-D is impossible");
+    }
+    n_targets = 0;
+    t = new_target();
+    t->has_prefix = 1;
+    t->ignore_case = 1;
+    strlist_add(&t->prefix, "[a-d]x", 6);
+    target_compile(t);
+    tcheck(pattern_possible(&t->pre[0]), "stats: ignore-case makes a-d possible");
+    struct { const char *s; double e; } exp_tests[] = {{"A", 4}, {"AB", 256}, {"B234", 1048576}};
+    for (int k = 0; k < 3; k++) {
+        n_targets = 0;
+        t = new_target();
+        t->has_prefix = 1;
+        strlist_add(&t->prefix, exp_tests[k].s, strlen(exp_tests[k].s));
+        target_compile(t);
+        tcheck(target_expected(t) == exp_tests[k].e, "stats: corrected prefix expectation");
+    }
+    n_targets = 0;
+    t = new_target();
+    t->has_prefix = t->has_suffix = 1;
+    strlist_add(&t->prefix, "1234", 4);
+    strlist_add(&t->suffix, "ZZZ", 3);
+    target_compile(t);
+    tcheck(target_expected(t) > 1e300, "stats: impossible AND has infinite expectation");
+    t->match_or = 1;
+    tcheck(target_expected(t) == 262144, "stats: OR ignores an impossible prefix");
+    n_targets = 0;
+    t = new_target();
+    t->has_suffix = 1;
+    strlist_add(&t->suffix, "ZZZ", 3);
+    target_compile(t);
+    tcheck(target_expected(t) == 262144, "stats: suffix expectation is unchanged");
     // EN: the global --match default applies where the target has no own --match
     // RU: глобальное значение --match действует там, где у цели нет своего --match
     n_targets = 0;
@@ -934,7 +984,7 @@ static void det_unit_tests(void) {
     // RU: битсет-матчер всех целей обязан совпадать с перебором целей на каждом адресе: фиксированный
     // RU: LCG генерирует адреса по всему алфавиту base64url против сотен смешанных целей
     {
-        static const char *const PRE[] = {"QQ", "U[0-9]", "_[Pp]a", "AB[C-F]", "Z"};
+        static const char *const PRE[] = {"AA", "U[0-9]", "_[Pp]a", "AB[C-F]", "Z"};
         static const char *const SUF[] = {"ZZZZZ", "[0-9]", "_[Pp]auper", "7", "[a-m][n-z]A", "TELEGRAM", "_PASHA"};
         static const char ALPHA[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
         // EN: reset the table first: without this the one-target leftovers of the tests above

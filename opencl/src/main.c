@@ -550,6 +550,7 @@ static void setup_search(int real_search) {
         job_dir_from_checkpoint(&in, opt.resume);
         resume_apply_target_overrides(&in);
         targets_from_checkpoint(&in);
+        targets_validate();
         if (!real_search) n_targets = 0;
         mkdir_p(job_dir);
         det.enabled = 1;
@@ -606,6 +607,7 @@ static void setup_search(int real_search) {
             if (n_targets == 0) new_target(); // EN: the implicit single target of a plain --suffix/--prefix run
                                               // RU: неявная единственная цель запуска с одним --suffix/--prefix
             targets_prepare();
+            targets_validate();
         } else {
             n_targets = 0; // EN: bench/dump/list-devices: no hit handling
                            // RU: bench/dump/list-devices: обработка хитов не нужна
@@ -721,7 +723,7 @@ static void print_banner(int real_search, double expected, int expected_active) 
         printf(tr("random mode: fresh OS randomness, no checkpoint; this search cannot be resumed (--random)\n",
                   "случайный режим: свежая случайность ОС, без checkpoint; этот поиск нельзя продолжить (--random)\n"));
     }
-    if (n_targets > 0 && expected_active > 0) {
+    if (n_targets > 0 && expected_active > 0 && isfinite(expected)) {
         if (expected_active == n_targets)
             printf(tr("expected ~%.3g phrases until the first hit across all targets\n",
                       "ожидается ~%.3g фраз до первого хита по всем целям\n"), expected);
@@ -771,10 +773,12 @@ static void print_progress(const LoopState *st, double done, double now) {
     if (n_targets > 0) {
         int active = 0;
         double expected_now = expected_tries_remaining(&active);
-        if (active > 0)
+        if (active > 0 && isfinite(expected_now))
             printf(tr(", %.2f%% of expected, chance found by now %.2f%%",
                       ", %.2f%% от ожидаемого, вероятность находки к этому моменту %.2f%%"),
                    100 * done / expected_now, 100 * (1 - exp(-done / expected_now)));
+        else if (active > 0)
+            printf(tr(", no possible hit remains", ", возможных хитов не осталось"));
         else
             printf(tr(", all targets reached", ", все цели достигнуты"));
     }
@@ -814,12 +818,17 @@ static void print_wait_estimate(LoopState *st, double tb, double done) {
         target_desc(&targets[i], desc, sizeof desc, 0);
         char disp[MAX_TARGET_LABEL + MAX_TARGET_NAME + 4];
         target_display(&targets[i], disp, sizeof disp);
-        fmt_wait(e / rate, tbuf, sizeof tbuf);
-        printf(tr("  target %s (%s): ~%.3g phrases, ~%s\n", "  цель %s (%s): ~%.3g фраз, ~%s\n"),
-               disp, desc, e, tbuf);
+        if (isfinite(e)) {
+            fmt_wait(e / rate, tbuf, sizeof tbuf);
+            printf(tr("  target %s (%s): ~%.3g phrases, ~%s\n", "  цель %s (%s): ~%.3g фраз, ~%s\n"),
+                   disp, desc, e, tbuf);
+        } else {
+            printf(tr("  target %s (%s): no possible hit\n", "  цель %s (%s): возможных хитов нет\n"),
+                   disp, desc);
+        }
     }
-    if (active > 1) {
-        double exp_active = miss < 1 ? 1 / (1 - miss) : 1;
+    if (active > 1 && miss < 1) {
+        double exp_active = 1 / (1 - miss);
         fmt_wait(exp_active / rate, tbuf, sizeof tbuf);
         printf(tr("  first hit on any of the %d remaining targets: ~%.3g phrases, ~%s\n",
                   "  первый хит по любой из %d оставшихся целей: ~%.3g фраз, ~%s\n"),

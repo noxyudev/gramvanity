@@ -10,6 +10,7 @@
 #include "options.h"
 #include "pattern.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -397,6 +398,27 @@ void targets_prepare(void) {
     }
 }
 
+// EN: the first character after the form tag is the top two bits of the account id
+// RU: первый символ после тега формы — старшие два бита id аккаунта
+int pattern_possible(const Pattern *p) {
+    if (!p->prefix) return 1;
+    static const char first[] = "ABCD";
+    for (int k = 0; k < 4; k++)
+        if (p->set[0][(unsigned char)first[k]]) return 1;
+    return 0;
+}
+
+void targets_validate(void) {
+    for (int i = 0; i < n_targets; i++) {
+        const Target *t = &targets[i];
+        for (int k = 0; k < t->n_pre; k++)
+            if (!pattern_possible(&t->pre[k]))
+                die(tr("target \"%s\": prefix \"%s\" can never match: the first character after the form tag is always A, B, C or D (the top two bits of the account id); use \"[A-D]%s\" instead or remove the prefix",
+                       "цель \"%s\": префикс \"%s\" не может совпасть: первый символ после тега формы — всегда A, B, C или D (старшие два бита id аккаунта); используйте \"[A-D]%s\" или уберите префикс"),
+                    t->name, t->pre[k].str, t->pre[k].str);
+    }
+}
+
 int pattern_matches(const Pattern *p, const char addr[49]) {
     int off = p->prefix ? 2 : 48 - p->len; // EN: skip the UQ/EQ/0Q/kQ form tag for prefixes
                                            // RU: для префиксов пропускаем тег формы UQ/EQ/0Q/kQ
@@ -682,8 +704,15 @@ static double expected_pattern(const Pattern *p) {
     double e = 1;
     for (int k = 0; k < p->len; k++) {
         int c = 0;
-        for (int b = 0; b < 256; b++) c += p->set[k][b];
-        e *= 64.0 / c;
+        if (p->prefix && k == 0) {
+            for (int b = 'A'; b <= 'D'; b++) c += p->set[k][b];
+            if (!c) return INFINITY;
+            e *= 4.0 / c;
+        } else {
+            for (int b = 0; b < 256; b++) c += p->set[k][b];
+            if (!c) return INFINITY;
+            e *= 64.0 / c;
+        }
     }
     return e;
 }
@@ -706,5 +735,5 @@ double target_probability(const Target *t) {
 
 double target_expected(const Target *t) {
     double p = target_probability(t);
-    return p > 0 ? 1 / p : 1;
+    return p > 0 ? 1 / p : INFINITY;
 }

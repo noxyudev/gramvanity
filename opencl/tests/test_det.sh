@@ -376,6 +376,37 @@ else
     bad "resume keeps the per-pattern counters"
 fi
 
+echo "== T5i: impossible prefixes and corrected expectations =="
+OUT="$TMP/t5i-dead"; rm -rf "$OUT"
+if "$BIN" --mode bip39-12 --prefix 1 --tries 10 --out "$OUT" $NOVERIFY > "$TMP/t5i.log" 2>&1; then
+    bad "impossible prefix is rejected"
+else
+    ok "impossible prefix is rejected"
+fi
+grep -q 'can never match.*A, B, C or D' "$TMP/t5i.log" && ok "impossible prefix explains A-D" || bad "impossible prefix explains A-D"
+[ ! -e "$OUT" ] && ok "impossible prefix creates no job folder" || bad "impossible prefix creates no job folder"
+CK="$TMP/t5j.checkpoint"; OUT="$TMP/t5j-out"; rm -f "$CK"; rm -rf "$OUT"
+"$BIN" --mode bip39-12 --prefix B234 --tries 5000000 --out "$OUT" --checkpoint "$CK" $NOVERIFY > "$TMP/t5j.log" 2>&1
+grep -q 'expected ~1.05e+06 phrases' "$TMP/t5j.log" && ok "B234 uses the corrected expectation" || bad "B234 uses the corrected expectation"
+ls "$OUT"/hit-* >/dev/null 2>&1 && ok "B234 finds a hit" || bad "B234 finds a hit"
+OUT="$TMP/t5k-out"; rm -rf "$OUT"
+if "$BIN" --mode bip39-12 --prefix ab --tries 10 --out "$OUT" $NOVERIFY > "$TMP/t5k.log" 2>&1; then
+    bad "lowercase ab without ignore-case is rejected"
+else
+    ok "lowercase ab without ignore-case is rejected"
+fi
+[ ! -e "$OUT" ] && ok "rejected lowercase prefix creates no folder" || bad "rejected lowercase prefix creates no folder"
+OUT="$TMP/t5l-out"; rm -rf "$OUT"
+if "$BIN" --mode bip39-12 --target dead --prefix Q --target live --suffix Z --tries 10 --out "$OUT" $NOVERIFY > "$TMP/t5l.log" 2>&1; then
+    bad "multi-target with a dead prefix is rejected"
+else
+    ok "multi-target with a dead prefix is rejected"
+fi
+[ ! -e "$OUT" ] && ok "rejected multi-target creates no folder" || bad "rejected multi-target creates no folder"
+CK="$TMP/t5m.checkpoint"; OUT="$TMP/t5m-out"; rm -f "$CK"; rm -rf "$OUT"
+"$BIN" --mode bip39-12 --prefix '[A-D]12' --tries 1000000 --out "$OUT" --checkpoint "$CK" $NOVERIFY > "$TMP/t5m.log" 2>&1
+ls "$OUT"/hit-* >/dev/null 2>&1 && ok "[A-D]12 is accepted and finds a hit" || bad "[A-D]12 is accepted and finds a hit"
+
 echo "== T5d: no fixed pattern count limit =="
 CK="$TMP/t5d.checkpoint"; OUT="$TMP/t5d-out"; rm -f "$CK"; rm -rf "$OUT"
 PFX=""; I=0

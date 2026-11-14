@@ -179,14 +179,15 @@ the independent verifier (when installed) to confirm the address before it repor
 - `[...]` means "one character from this list". Ranges work: `[a-z]` is any lowercase letter,
   `[0-9A-F]` is a hex digit. So `[a-z_]HELLO` means "a lowercase letter or _, then HELLO".
 - `--prefix` matches the beginning of the address right after the two-character form tag (`UQ`, or
-  `EQ`/`0Q`/`kQ` depending on the options).
+  `EQ`/`0Q`/`kQ` depending on the options). Its first character can only be `A`, `B`, `C` or `D`;
+  impossible prefixes are rejected at startup. Use `[A-D]` for an arbitrary first character.
 - `--suffix` matches the end of the address.
 - `--ignore-case` lets the found address use any capitalization; helpful when the ending should look
   good rather than be a specific spelling.
 - If a target has both a prefix and a suffix, the address must satisfy **both**. Alternatives
   inside one list are joined with "or": you can repeat `--suffix` or separate values with commas.
-- `--match or` relaxes that rule: one group suffices, so `--prefix MOON --suffix 777 --match or`
-  finds addresses that start with MOON **or** end with 777. The option works globally (before the
+- `--match or` relaxes that rule: one group suffices, so `--prefix BOND --suffix 777 --match or`
+  finds addresses that start with BOND **or** end with 777. The option works globally (before the
   first `--target`) and inside a target, where it overrides the global value.
 - Addresses only use `A-Z a-z 0-9 - _`. Always put patterns containing `[...]` in quotes, otherwise
   the shell may try to expand them.
@@ -196,14 +197,14 @@ Examples:
 ```sh
 ./gramvanity --suffix '777' --mode bip39-12
 ./gramvanity --suffix '[Hh]ELLO' --mode bip39-12          # HELLO or hELLO
-./gramvanity --prefix MOON --suffix '777' --mode bip39-12 # starts with MOON, ends with 777
-./gramvanity --suffix 'HELLO,MOON' --mode bip39-12        # either ending
-./gramvanity --prefix MOON --suffix '777' --match or --mode bip39-12 # MOON at the start or 777 at the end
+./gramvanity --prefix BOND --suffix '777' --mode bip39-12 # starts with BOND, ends with 777
+./gramvanity --suffix 'HELLO,BOND' --mode bip39-12        # either ending
+./gramvanity --prefix BOND --suffix '777' --match or --mode bip39-12 # BOND at the start or 777 at the end
 ```
 
 ## How long it takes
 
-Search time grows by roughly 64× for every extra fixed character. The table assumes about 681,000
+Search time grows by roughly 64× for every extra fixed character, except the first prefix character, which costs about 4×. The table assumes about 681,000
 phrases per second, which is full speed (`--power 100`); the default `--power 65` adds about 50%
 to these times.
 
@@ -245,7 +246,7 @@ the next `--target`:
 ```sh
 ./gramvanity --mode bip39-12 \
   --target HELLO --suffix '[a-z_]HELLO' --count 1 \
-  --target MOON  --prefix MOON --suffix '777' --count 2 \
+  --target BOND  --prefix BOND --suffix '777' --count 2 \
   --target SHORT --prefix '[A-Z]' --suffix 'X'
 ```
 
@@ -291,7 +292,7 @@ Every run gets its own folder. By default it is `results/job-<timestamp>/` in th
 ```text
 job-20261028-101500/                       # inside results/
   hit-HELLO-123456.txt                     # one file per hit
-  hit-MOON+SHORT-654321.txt                # an address that matched two targets
+  hit-BOND+SHORT-654321.txt                # an address that matched two targets
   stop-bip39-12-idx1234567-20261028-104500.txt
   job.checkpoint                           # saved search state (editable text)
 ```
