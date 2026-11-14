@@ -24,6 +24,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "sha256.h"
 #include "third_party/monocypher/monocypher.h"
@@ -33,6 +38,18 @@ static void tcheck(int ok, const char *what) {
     printf("%s %s\n", ok ? "ok  " : "FAIL", what);
     if (!ok) fails++;
 }
+
+static int checkpoint_merge(const char *const *inputs, int n_inputs, const char *out_path,
+                            struct Checkpoint *out, int *dropped, int *renamed,
+                            char *err, size_t errn) {
+    if (checkpoint_merge_build(inputs, n_inputs, out, dropped, renamed, err, errn)) return -1;
+    if (checkpoint_merge_write(out_path, out, err, errn)) {
+        checkpoint_free(out);
+        return -1;
+    }
+    return 0;
+}
+
 void self_test(void) {
     // EN: 1. CPU primitives against published vectors
     // RU: 1. примитивы CPU против опубликованных векторов
@@ -1151,6 +1168,13 @@ static void det_unit_tests(void) {
     tcheck(!done_unlimited && fills_unlimited,
            "all-patterns: an unlimited target never finishes and saves every matching hit");
     printf("%s: %d failure(s)\n", fails ? "SELF-TEST FAILED" : "deterministic-search self-test passed", fails);
+    if (!fails) {
+#ifdef _WIN32
+        RemoveDirectoryA(job_dir);
+#else
+        rmdir(job_dir);
+#endif
+    }
 }
 
 int selftest_det(void) {

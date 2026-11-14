@@ -289,7 +289,7 @@ int write_file_atomic(const char *path, const uint8_t *data, size_t len) {
     size_t off = 0;
     while (off < len) {
         int w = _write(fd, data + off, (unsigned)(len - off > 65536 ? 65536 : len - off));
-        if (w <= 0) { _close(fd); return -1; }
+        if (w <= 0) { _close(fd); _unlink(tmp); return -1; }
         off += (size_t)w;
     }
     _commit(fd);
@@ -302,7 +302,7 @@ int write_file_atomic(const char *path, const uint8_t *data, size_t len) {
     size_t off = 0;
     while (off < len) {
         ssize_t w = write(fd, data + off, len - off);
-        if (w <= 0) { close(fd); return -1; }
+        if (w <= 0) { close(fd); unlink(tmp); return -1; }
         off += (size_t)w;
     }
     fsync(fd);

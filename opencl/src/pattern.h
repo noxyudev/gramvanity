@@ -103,11 +103,12 @@ void target_compile(Target *t);
 // RU: Определяет идентификаторы целей после разбора: безымянные становятся t1, t2, ..., а дубликаты
 // RU: получают числовой суффикс (A, A2, A3). Метка сохраняет имя ровно как его ввёл пользователь.
 void target_names_resolve(void);
-// EN: Applies the global target defaults (count, ignore-case, job folder) and compiles the patterns.
-// EN: The job folder must already be final.
-// RU: Применяет глобальные значения целей по умолчанию (count, ignore-case, папка задания) и компилирует
-// RU: шаблоны. Папка задания должна быть уже окончательной.
+// EN: Applies the global target defaults and compiles the patterns without touching the filesystem.
+// RU: Применяет глобальные значения целей и компилирует шаблоны без обращения к файловой системе.
 void targets_prepare(void);
+// EN: Binds default hit directories after the job folder has been created.
+// RU: Привязывает стандартные папки хитов после создания папки задания.
+void targets_bind_out_dirs(void);
 // EN: A prefix is possible only if its first position accepts A, B, C or D.
 // RU: Префикс возможен, только если его первая позиция допускает A, B, C или D.
 int pattern_possible(const Pattern *p);

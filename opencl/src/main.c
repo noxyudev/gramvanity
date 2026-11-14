@@ -390,9 +390,6 @@ static int cmd_checkpoint_fix(void) {
 // RU: при продолжении. Сводка — человекочитаемый текст; машиночитаемый дамп результата даёт
 // RU: --checkpoint-info.
 static int cmd_checkpoint_merge(void) {
-    job_dir_make(); // EN: --out as given, else results/job-<UTC timestamp> | RU: --out как задан, иначе results/job-<UTC-метка>
-    char out_path[4096];
-    snprintf(out_path, sizeof out_path, "%s%cjob.checkpoint", job_dir, PATH_SEP);
     // EN: a --in value may be a job folder: it then points at the job.checkpoint inside
     // RU: значение --in может быть папкой задания: тогда оно указывает на job.checkpoint внутри
     const char *ins[CHECKPOINT_MERGE_MAX_IN];
@@ -407,7 +404,12 @@ static int cmd_checkpoint_merge(void) {
     struct Checkpoint out;
     int dropped = 0, renamed = 0;
     char err[256];
-    if (checkpoint_merge(ins, opt.n_merge_ins, out_path, &out, &dropped, &renamed, err, sizeof err))
+    if (checkpoint_merge_build(ins, opt.n_merge_ins, &out, &dropped, &renamed, err, sizeof err))
+        die("%s", err);
+    job_dir_make(); // EN: --out as given, else results/job-<UTC timestamp> | RU: --out как задан, иначе results/job-<UTC-метка>
+    char out_path[4096];
+    snprintf(out_path, sizeof out_path, "%s%cjob.checkpoint", job_dir, PATH_SEP);
+    if (checkpoint_merge_write(out_path, &out, err, sizeof err))
         die("%s", err);
     printf(tr("checkpoint merged: %s\n", "checkpoint собран: %s\n"), out_path);
     printf(tr("  mode %s, %u target(s) kept, %d done target(s) dropped\n",
@@ -552,7 +554,6 @@ static void setup_search(int real_search) {
         targets_from_checkpoint(&in);
         targets_validate();
         if (!real_search) n_targets = 0;
-        mkdir_p(job_dir);
         det.enabled = 1;
         memcpy(det.key, in.key, 32);
         det.start = in.start;
@@ -597,13 +598,13 @@ static void setup_search(int real_search) {
                        "(возьмите больший --tries или продолжите без него)"),
                     (unsigned long long)opt.tries, (unsigned long long)det.s1_next);
         }
+        mkdir_p(job_dir);
         printf(tr("resuming %s search from index %llu (started at %llu, end %s)\n",
                   "продолжаем поиск %s с индекса %llu (начало %llu, конец %s)\n"),
                MODE_NAME[opt.mode], (unsigned long long)det.next, (unsigned long long)det.start,
                det.has_end ? tr("at the value below", "см. значение ниже") : tr("unlimited", "без ограничения"));
     } else {
         if (real_search) {
-            job_dir_make();
             if (n_targets == 0) new_target(); // EN: the implicit single target of a plain --suffix/--prefix run
                                               // RU: неявная единственная цель запуска с одним --suffix/--prefix
             targets_prepare();
@@ -630,8 +631,14 @@ static void setup_search(int real_search) {
                 det.end = e;
                 det.has_end = 1;
             }
-            if (opt.checkpoint[0]) snprintf(det.checkpoint_path, sizeof det.checkpoint_path, "%s", opt.checkpoint);
-            else if (real_search) snprintf(det.checkpoint_path, sizeof det.checkpoint_path, "%s%cjob.checkpoint", job_dir, PATH_SEP);
+        }
+        if (opt.checkpoint[0])
+            snprintf(det.checkpoint_path, sizeof det.checkpoint_path, "%s", opt.checkpoint);
+        if (real_search) {
+            job_dir_make();
+            targets_bind_out_dirs();
+            if (det.enabled && !opt.checkpoint[0])
+                snprintf(det.checkpoint_path, sizeof det.checkpoint_path, "%s%cjob.checkpoint", job_dir, PATH_SEP);
         }
     }
     // EN: targets are final here (parsed, or restored from the checkpoint): build the fast all-targets
@@ -1069,6 +1076,7 @@ static int real_main(int argc, char **argv) {
     if (opt.derive_key[0]) return cmd_derive();
 
     int real_search = !opt.bench && !opt.dump && !opt.list_devices;
+    init_gpu_and_selftest();
     setup_search(real_search);
     // EN: the Windows console-close handler saves state from its own thread once the paths are
     // EN: known; the handler itself is installed later, in run_search_loop().
@@ -1076,7 +1084,6 @@ static int real_main(int argc, char **argv) {
     // RU: уже известны; сам обработчик ставится позже, в run_search_loop().
     set_emergency_save(save_all_and_report);
 
-    init_gpu_and_selftest();
     int expected_active = 0;
     double expected = expected_tries_remaining(&expected_active);
     print_banner(real_search, expected, expected_active);

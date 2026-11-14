@@ -237,6 +237,13 @@ if [ -n "$T4B_N" ] && [ -n "$T4B_F" ] && [ "$T4B_F" -gt "$T4B_N" ]; then
         fi
         grep -q "stage-1 frontier" "$TMP/t4br.log" \
             && ok "the refusal names the stage-1 frontier" || bad "the refusal names the stage-1 frontier"
+        T4B_NEW="$TMP/t4b-new"; rm -rf "$T4B_NEW"
+        if "$BIN" --resume "$CK" --tries "$T4B_HALF" --out "$T4B_NEW" --no-verify > "$TMP/t4br-out.log" 2>&1; then
+            bad "refused resume --tries with --out"
+        else
+            ok "refused resume --tries with --out"
+        fi
+        [ ! -e "$T4B_NEW" ] && ok "refused resume creates no new job folder" || bad "refused resume creates no new job folder"
     fi
     "$BIN" --resume "$CK" --tries $((T4B_W + 60000)) --no-verify > "$TMP/t4bs.log" 2>&1
     check "resume past the frontier completes the extended range" "$(next_index "$CK")" "$((T4B_F + 60000))"
@@ -696,6 +703,28 @@ if [ -n "$NEWMERGE" ] && [ -f "$NEWMERGE/job.checkpoint" ]; then
 else
     bad "merge without --out creates results/job-<timestamp>/ with job.checkpoint"
 fi
+
+[ ! -e "$MOUT2" ] && ok "mixed-mode merge creates no output folder" || bad "mixed-mode merge creates no output folder"
+[ ! -e "$TMP/t12-merged-empty" ] && ok "invalid merge creates no --out folder" || bad "invalid merge creates no --out folder"
+BEFORE="$TMP/t13-jobs-before"; AFTER="$TMP/t13-jobs-after"
+ls -d ../results/job-*/ 2>/dev/null | sort > "$BEFORE" || : > "$BEFORE"
+if "$BIN" --checkpoint-merge --in "$TMP/t13-does-not-exist" > "$TMP/t13a.log" 2>&1; then
+    bad "merge rejects a missing input"
+else
+    ok "merge rejects a missing input"
+fi
+ls -d ../results/job-*/ 2>/dev/null | sort > "$AFTER" || : > "$AFTER"
+[ "$(cat "$BEFORE")" = "$(cat "$AFTER")" ] && ok "failed merge creates no default job folder" || bad "failed merge creates no default job folder"
+OUT="$TMP/t13-malformed"; rm -rf "$OUT"
+if "$BIN" --mode bip39-12 --suffix 'HE[LL' --out "$OUT" > "$TMP/t13c.log" 2>&1; then
+    bad "malformed pattern is rejected"
+else
+    ok "malformed pattern is rejected"
+fi
+[ ! -e "$OUT" ] && ok "malformed pattern creates no job folder" || bad "malformed pattern creates no job folder"
+rm -rf ../results/job-selftest
+"$BIN" --selftest-det > "$TMP/t13d.log" 2>&1
+[ ! -e ../results/job-selftest ] && ok "selftest-det leaves no job-selftest folder" || bad "selftest-det leaves no job-selftest folder"
 
 echo
 echo "passed $PASS, failed $FAIL"

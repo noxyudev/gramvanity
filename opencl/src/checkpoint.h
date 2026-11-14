@@ -104,23 +104,22 @@ int checkpoint_fix(const char *path, struct Checkpoint *in, char *err, size_t er
 // EN: the wallet form/network. job_dir and the per-target out lines are not stored: the merged
 // EN: file's own folder is the job folder, like for a hand-written file. *out receives the merged
 // EN: state for the caller's summary (free with checkpoint_free); *dropped and *renamed, when not
-// EN: NULL, receive the target counts. The file is written only after every input has loaded.
-// RU: --checkpoint-merge: собирает новый checkpoint в out_path из целей одного или нескольких
-// RU: существующих checkpoint, ещё не достигших своего --count. Результат — новое задание: свежий
-// RU: ключ поиска, позиция поиска начинается с индекса 0, счётчики задания обнулены, ведь
-// RU: кандидаты выводятся из ключа, и под новым ключом ещё ничего не искали. Выполненные цели
-// RU: отбрасываются: их хиты остаются восстановимыми только из исходных файлов через --reveal.
-// RU: Цели с одинаковым именем и одинаковыми шаблонами склеиваются в одну по максимуму полей
-// RU: (count, hits, хиты по шаблонам; unlimited сильнее любого count); повторно использованное
-// RU: имя с другими шаблонами получает суффикс -2, -3... Все входы должны совпадать по режиму,
-// RU: форме и сети кошелька. Строки job_dir и out у целей не сохраняются: папка самого
-// RU: объединённого файла становится папкой задания, как у файла, собранного вручную. *out
-// RU: получает объединённое состояние для сводки вызывающей стороны (освободить через
-// RU: checkpoint_free); *dropped и *renamed, если не NULL, получают числа целей. Файл пишется
-// RU: только после успешной загрузки всех входов.
-int checkpoint_merge(const char *const *inputs, int n_inputs, const char *out_path,
-                     struct Checkpoint *out, int *dropped, int *renamed,
-                     char *err, size_t errn);
+// EN: NULL, receive the target counts. Build performs no disk writes; write refuses existing output.
+// RU: --checkpoint-merge: собирает новый checkpoint из целей одного или нескольких существующих
+// RU: checkpoint, ещё не достигших своего --count. Результат — новое задание: свежий ключ поиска,
+// RU: позиция поиска начинается с индекса 0, счётчики задания обнулены, ведь кандидаты выводятся
+// RU: из ключа, и под новым ключом ещё ничего не искали. Выполненные цели отбрасываются: их хиты
+// RU: остаются восстановимыми только из исходных файлов через --reveal. Цели с одинаковым именем
+// RU: и одинаковыми шаблонами склеиваются в одну по максимуму полей (count, hits, хиты по шаблонам;
+// RU: unlimited сильнее любого count); повторно использованное имя с другими шаблонами получает
+// RU: суффикс -2, -3... Все входы должны совпадать по режиму, форме и сети кошелька. Строки job_dir
+// RU: и out у целей не сохраняются: папка самого объединённого файла становится папкой задания,
+// RU: как у файла, собранного вручную. *out получает объединённое состояние для сводки вызывающей
+// RU: стороны (освободить через checkpoint_free); *dropped и *renamed, если не NULL, получают числа
+// RU: целей. Build не пишет на диск; write отказывается перезаписывать существующий выход.
+int checkpoint_merge_build(const char *const *inputs, int n_inputs, struct Checkpoint *out,
+                           int *dropped, int *renamed, char *err, size_t errn);
+int checkpoint_merge_write(const char *out_path, const struct Checkpoint *out, char *err, size_t errn);
 
 // EN: Sets job_dir from the checkpoint. A checkpoint without a job folder (a hand-written file)
 // EN: uses the checkpoint file's own directory. --out on resume moves the job and every target that

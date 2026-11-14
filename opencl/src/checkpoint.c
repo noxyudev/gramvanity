@@ -1529,23 +1529,11 @@ static CheckpointTarget *cp_merge_target(struct Checkpoint *out, const Checkpoin
     return dst;
 }
 
-int checkpoint_merge(const char *const *inputs, int n_inputs, const char *out_path,
-                     struct Checkpoint *out, int *dropped, int *renamed,
-                     char *err, size_t errn) {
+int checkpoint_merge_build(const char *const *inputs, int n_inputs, struct Checkpoint *out,
+                           int *dropped, int *renamed, char *err, size_t errn) {
     if (n_inputs < 1) {
         snprintf(err, errn, "%s", tr("--checkpoint-merge: no input files",
                                      "--checkpoint-merge: нет входных файлов"));
-        return -1;
-    }
-    // EN: never overwrite: the output path may hold a precious checkpoint whose key would be lost
-    // EN: forever (the check also rules out an input path as the output)
-    // RU: никогда не перезаписываем: на выходном пути может лежать ценный checkpoint, чей ключ
-    // RU: потерялся бы навсегда (проверка заодно исключает входной путь как выходной)
-    FILE *probe = fopen(out_path, "rb");
-    if (probe) {
-        fclose(probe);
-        snprintf(err, errn, "%s: %s", out_path,
-                 tr("output checkpoint already exists", "выходной checkpoint уже существует"));
         return -1;
     }
     struct Checkpoint *cps = calloc((size_t)n_inputs, sizeof *cps);
@@ -1553,10 +1541,8 @@ int checkpoint_merge(const char *const *inputs, int n_inputs, const char *out_pa
         snprintf(err, errn, "%s", tr("out of memory", "не хватает памяти"));
         return -1;
     }
-    // EN: load every input first: the merged file is written only when all of them parse, so a
-    // EN: failed merge never touches the output path
-    // RU: сначала загружаем все входы: объединённый файл пишется, только если все разобрались,
-    // RU: поэтому неудачное слияние никогда не трогает выходной путь
+    // EN: load every input before building the output; the caller creates no files until this succeeds
+    // RU: сначала загружаем все входы; вызывающая сторона не создаёт файлы до успешной сборки
     for (int i = 0; i < n_inputs; i++) {
         char sub[256];
         if (checkpoint_load(inputs[i], &cps[i], sub, sizeof sub)) {
@@ -1604,10 +1590,6 @@ int checkpoint_merge(const char *const *inputs, int n_inputs, const char *out_pa
         checkpoint_free(out);
         goto fail;
     }
-    if (write_checkpoint_file(out_path, out, err, errn)) {
-        checkpoint_free(out);
-        goto fail;
-    }
     if (dropped) *dropped = ndropped;
     if (renamed) *renamed = nrenamed;
     // EN: the inputs are no longer needed; *out stays filled for the caller's summary
@@ -1619,4 +1601,19 @@ fail:
     for (int i = 0; i < n_inputs; i++) checkpoint_free(&cps[i]);
     free(cps);
     return -1;
+}
+
+int checkpoint_merge_write(const char *out_path, const struct Checkpoint *out, char *err, size_t errn) {
+    // EN: never overwrite: the output path may hold a precious checkpoint whose key would be lost
+    // EN: forever (the check also rules out an input path as the output)
+    // RU: никогда не перезаписываем: на выходном пути может лежать ценный checkpoint, чей ключ
+    // RU: потерялся бы навсегда (проверка заодно исключает входной путь как выходной)
+    FILE *probe = fopen(out_path, "rb");
+    if (probe) {
+        fclose(probe);
+        snprintf(err, errn, "%s: %s", out_path,
+                 tr("output checkpoint already exists", "выходной checkpoint уже существует"));
+        return -1;
+    }
+    return write_checkpoint_file(out_path, out, err, errn);
 }

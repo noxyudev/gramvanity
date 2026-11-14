@@ -393,9 +393,13 @@ void targets_prepare(void) {
         if (!t->ignore_case_given) t->ignore_case = opt.ignore_case;
         if (!t->match_given) t->match_or = opt.match_or;
         if (!t->all_patterns_given) t->all_patterns = opt.all_patterns;
-        if (!t->out_given) snprintf(t->out_dir, sizeof t->out_dir, "%s", job_dir);
         target_compile(t);
     }
+}
+
+void targets_bind_out_dirs(void) {
+    for (int i = 0; i < n_targets; i++)
+        if (!targets[i].out_given) snprintf(targets[i].out_dir, sizeof targets[i].out_dir, "%s", job_dir);
 }
 
 // EN: the first character after the form tag is the top two bits of the account id
