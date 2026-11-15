@@ -6,7 +6,11 @@ All notable changes to gramvanity are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [1.2.0] - 2026-11-15
+
+Installation and developer-experience release: a verified one-command installer for players,
+a no-surprises developer setup (native or Docker) and a hardening pass on `w5addr activate`.
+The release archives are now verified in CI before they are published.
 
 ### Added
 - One-command user installers (`tools/install-user.ps1`, `tools/install-user.sh`): download the
@@ -197,7 +201,7 @@ wallet derives on import. The global changes relative to the original project:
 - CI on GitHub Actions (Linux + Windows) and tag-driven releases with ready archives.
 - Bilingual documentation (English/Russian) and runtime localization `--lang en|ru`.
 
-[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.1.3...HEAD
+[1.2.0]: https://github.com/noxyudev/gramvanity/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/noxyudev/gramvanity/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/noxyudev/gramvanity/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/noxyudev/gramvanity/compare/v1.1.0...v1.1.1

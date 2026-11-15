@@ -6,7 +6,11 @@
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/); версии — по
 [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [1.2.0] - 2026-11-15
+
+Релиз установки и удобства разработчика: проверенный установщик в одну команду для игроков,
+настройка окружения разработчика без сюрпризов (нативно или через Docker) и закалка
+`w5addr activate`. Релизные архивы теперь проверяются в CI до публикации.
 
 ### Добавлено
 - Пользовательские установщики в одну команду (`tools/install-user.ps1`, `tools/install-user.sh`):
@@ -201,7 +205,7 @@
 - CI на GitHub Actions (Linux + Windows) и релизы по тегу с готовыми архивами.
 - Двуязычная документация (английский/русский) и локализация `--lang en|ru`.
 
-[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.1.3...HEAD
+[1.2.0]: https://github.com/noxyudev/gramvanity/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/noxyudev/gramvanity/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/noxyudev/gramvanity/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/noxyudev/gramvanity/compare/v1.1.0...v1.1.1
