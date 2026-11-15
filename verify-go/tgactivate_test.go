@@ -18,6 +18,8 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/hex"
+	"io"
+	"os"
 	"strings"
 	"testing"
 
@@ -136,5 +138,63 @@ func TestTgCheckMatchesActivation(t *testing.T) {
 	}
 	if out["uq"] != tgTestMainnetUQ || out["eq"] != tgTestMainnetEQ {
 		t.Fatalf("tgCheck address = %v / %v", out["uq"], out["eq"])
+	}
+}
+
+// EN: runActivateCapture runs runActivate with stderr swapped for a pipe, so the argument
+// EN: validation paths can be asserted without touching the network.
+// RU: runActivateCapture запускает runActivate, подменив stderr на канал, чтобы проверять
+// RU: валидацию аргументов без обращения к сети.
+func runActivateCapture(args []string) (int, string) {
+	old := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		return -1, ""
+	}
+	os.Stderr = w
+	code := runActivate(args)
+	w.Close()
+	os.Stderr = old
+	out, _ := io.ReadAll(r)
+	r.Close()
+	return code, string(out)
+}
+
+func TestTgActivateValidForRange(t *testing.T) {
+	// EN: Values outside 1..604800 are rejected during the argument scan, before any network use.
+	// RU: Значения вне 1..604800 отклоняются при разборе аргументов, до любого обращения к сети.
+	for _, bad := range []string{"0", "-1", "604801", "9999999999", "abc"} {
+		code, msg := runActivateCapture([]string{"--valid-for", bad})
+		if code == 0 || !strings.Contains(msg, "--valid-for") {
+			t.Fatalf("--valid-for %q: exit code %d, stderr %q", bad, code, msg)
+		}
+	}
+	// EN: Boundary values pass the argument scan: with no phrase the run fails later, on the
+	// EN: missing phrase — which also proves nothing else was validated before that point.
+	// RU: Граничные значения проходят разбор аргументов: без фразы запуск падает позже —
+	// RU: на отсутствующей фразе, что также доказывает, что до этого момента ничего не выполнялось.
+	for _, good := range []string{"1", "300", "604800"} {
+		code, msg := runActivateCapture([]string{"--valid-for", good})
+		if code == 0 || !strings.Contains(msg, "pass the phrase") {
+			t.Fatalf("--valid-for %q accepted but: exit code %d, stderr %q", good, code, msg)
+		}
+	}
+}
+
+func TestTgParseBalance(t *testing.T) {
+	// EN: A valid balance parses; an unreadable one is an error, never a silent zero.
+	// RU: Корректный баланс разбирается; неразбираемый — ошибка, но никогда молчаливый ноль.
+	n, err := tgParseBalance("123456789")
+	if err != nil || n == nil || n.String() != "123456789" {
+		t.Fatalf("tgParseBalance(\"123456789\") = %v, %v", n, err)
+	}
+	n, err = tgParseBalance(" 42 ")
+	if err != nil || n == nil || n.String() != "42" {
+		t.Fatalf("tgParseBalance(\" 42 \") = %v, %v", n, err)
+	}
+	for _, bad := range []string{"", "none", "0x10", "1.5"} {
+		if n, err := tgParseBalance(bad); err == nil || n != nil {
+			t.Fatalf("tgParseBalance(%q) = %v, nil error; want an error", bad, n)
+		}
 	}
 }

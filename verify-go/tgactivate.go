@@ -42,7 +42,7 @@
 //	--send                send the message via toncenter (needs >= 0.02 GRAM on the address)
 //	--api-key KEY         toncenter API key (or env TONCENTER_API_KEY); optional but raises rate limits
 //	--out FILE            save the BoC to FILE (default: print only)
-//	--valid-for SEC       message validity window (default 300)
+//	--valid-for SEC       message validity window in seconds, 1..604800 (default 300)
 //
 // EN: Safety: run it on your own machine; it derives keys from the phrase and never sends the phrase
 // EN: anywhere (only the signed BoC goes to toncenter). A --random hit file keeps the phrase until you
@@ -74,11 +74,21 @@ import (
 )
 
 const (
-	tgChangeKeyOpcode = 0xFBBA99C8  // EN: ChangePublicKeyRequestE opcode | RU: опкод ChangePublicKeyRequestE
-	tgMinBalance      = 20_000_000  // EN: 0.02 GRAM: enough for deploy + rotation + the event
-	                                // RU: 0.02 GRAM: хватает на деплой + смену ключа + событие
-	tgRecommendedBal  = 100_000_000 // EN: 0.1 GRAM | RU: 0.1 GRAM
-	tgActivateUsage   = `usage: w5addr activate --phrase "w1 ... w24" [options]
+	tgChangeKeyOpcode = 0xFBBA99C8 // EN: ChangePublicKeyRequestE opcode | RU: опкод ChangePublicKeyRequestE
+
+	// EN: 0.02 GRAM: enough for deploy + rotation + the event.
+	// RU: 0.02 GRAM: хватает на деплой + смену ключа + событие.
+	tgMinBalance = 20_000_000
+
+	// EN: 0.1 GRAM
+	// RU: 0.1 GRAM
+	tgRecommendedBal = 100_000_000
+
+	// EN: --valid-for cap (7 days): bounds validUntil inside uint32.
+	// RU: предел --valid-for (7 суток): держит validUntil внутри uint32.
+	tgMaxValidFor = 7 * 24 * 3600
+
+	tgActivateUsage = `usage: w5addr activate --phrase "w1 ... w24" [options]
        w5addr activate --hit FILE [options]
 
 Activates a gramvanity tg-wallet: deploys the WalletTg trampoline and switches the contract
@@ -97,7 +107,7 @@ options:
   --send                 send the message via toncenter (needs >= 0.02 GRAM)
   --api-key KEY          toncenter API key (or env TONCENTER_API_KEY)
   --out FILE             save the signed BoC to FILE (default: print only)
-  --valid-for SEC        message validity window in seconds (default 300)
+  --valid-for SEC        message validity window in seconds, 1..604800 (default 300)
   --help                 show this help
 
 Without --send the signed message is only printed/saved, so you can fund the address first
@@ -157,8 +167,8 @@ func runActivate(args []string) int {
 			send = true
 		case "--valid-for":
 			n, err := strconv.Atoi(next())
-			if err != nil || n < 0 {
-				return tgFail("--valid-for must be a non-negative number of seconds")
+			if err != nil || n < 1 || n > tgMaxValidFor {
+				return tgFail("--valid-for must be between 1 and %d seconds (7 days)", tgMaxValidFor)
 			}
 			validFor = n
 		case "--help", "-h":
@@ -240,31 +250,34 @@ func runActivate(args []string) int {
 	if err != nil {
 		return tgFail("%v", err)
 	}
-	balance, ok := new(big.Int).SetString(string(info.Balance), 10)
-	if !ok {
-		balance = new(big.Int)
+	balance, err := tgParseBalance(string(info.Balance))
+	if err != nil {
+		return tgFail("%v", err)
 	}
 	fmt.Printf("on-chain:     %s, balance %s GRAM\n", info.State, formatTgCoins(balance))
 
 	switch info.State {
 	case "active":
-		if info.Code != "" {
-			rawCode, err := base64.StdEncoding.DecodeString(info.Code)
-			if err != nil {
-				return tgFail("cannot decode the on-chain code: %v", err)
-			}
-			onChainCode, err := cell.FromBOC(rawCode)
-			if err != nil {
-				return tgFail("cannot decode the on-chain code: %v", err)
-			}
-			want, err := cell.FromBOC(trampolineBOC)
-			if err != nil {
-				return tgFail("cannot decode the WalletTrampoline code: %v", err)
-			}
-			if !bytes.Equal(onChainCode.Hash(), want.Hash()) {
-				return tgFail("the contract at this address is NOT a Telegram Wallet (code hash %s). "+
-					"Do not send anything there; the phrase or the network is wrong.", hex.EncodeToString(onChainCode.Hash()))
-			}
+		if info.Code == "" {
+			return tgFail("the account reports state \"active\" but toncenter returned no contract code, so it cannot " +
+				"be verified that this address really is a Telegram Wallet. Retry, or check the address in a block " +
+				"explorer; do not send anything until the code is confirmed.")
+		}
+		rawCode, err := base64.StdEncoding.DecodeString(info.Code)
+		if err != nil {
+			return tgFail("cannot decode the on-chain code: %v", err)
+		}
+		onChainCode, err := cell.FromBOC(rawCode)
+		if err != nil {
+			return tgFail("cannot decode the on-chain code: %v", err)
+		}
+		want, err := cell.FromBOC(trampolineBOC)
+		if err != nil {
+			return tgFail("cannot decode the WalletTrampoline code: %v", err)
+		}
+		if !bytes.Equal(onChainCode.Hash(), want.Hash()) {
+			return tgFail("the contract at this address is NOT a Telegram Wallet (code hash %s). "+
+				"Do not send anything there; the phrase or the network is wrong.", hex.EncodeToString(onChainCode.Hash()))
 		}
 		pub, err := rpc.getNumber(addrStr, "get_public_key")
 		if err != nil {
@@ -307,6 +320,8 @@ func runActivate(args []string) int {
 		}
 		seqno = uint32(n.Uint64())
 	}
+	// EN: validFor is capped at tgMaxValidFor, so now+validFor stays far inside uint32 (until 2106).
+	// RU: validFor ограничен tgMaxValidFor, поэтому now+validFor остаётся глубоко внутри uint32 (до 2106 года).
 	validUntil := uint32(time.Now().Unix() + int64(validFor))
 	boc, err := tgBuildSignedMessage(anchorPriv, signingPriv, addr, network.subwallet,
 		info.State == "active", seqno, validUntil)
@@ -358,6 +373,20 @@ func runActivate(args []string) int {
 }
 
 func tgActivateHelp() string { return tgActivateUsage }
+
+// EN: tgParseBalance converts the toncenter balance (nanoGRAM, decimal string) to a number.
+// EN: An unreadable balance is an API/parse error and must fail the run: a silent fallback to 0
+// EN: would make --check and the --send balance gate report a fake "balance 0 GRAM".
+// RU: tgParseBalance превращает баланс от toncenter (наноGRAM, десятичная строка) в число.
+// RU: Неразбираемый баланс — ошибка API/парсинга и должен прерывать работу: молчаливый ноль
+// RU: сделал бы --check и проверку баланса перед --send недостоверными.
+func tgParseBalance(raw string) (*big.Int, error) {
+	balance, ok := new(big.Int).SetString(strings.TrimSpace(raw), 10)
+	if !ok {
+		return nil, fmt.Errorf("toncenter returned an unreadable balance %q (API or rate-limit problem; retry, or use --api-key)", raw)
+	}
+	return balance, nil
+}
 
 // EN: formatTgCoins prints nanoGRAM as GRAM with four decimals, like the JavaScript tool.
 // RU: formatTgCoins печатает nanoGRAM как GRAM с четырьмя знаками, как инструмент на JavaScript.

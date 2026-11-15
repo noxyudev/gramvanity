@@ -6,6 +6,17 @@
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/); версии — по
 [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Исправлено
+- `w5addr activate` сообщает об ошибке вместо фиктивного «balance 0 GRAM», когда toncenter
+  возвращает неразбираемый баланс.
+- `w5addr activate` отказывается продолжать, когда состояние аккаунта `active`, но toncenter не
+  вернул код контракта: нельзя убедиться, что адрес — Telegram Wallet (fail-closed; пустой код
+  для `uninitialized` остаётся ожидаемым).
+- `w5addr activate --valid-for` ограничен диапазоном 1..604800 секунд (7 суток) вместо
+  молчаливого принятия значений, способных переполнить окно действия сообщения.
+
 ## [1.1.3] - 2026-11-15
 
 ### Исправлено
@@ -163,6 +174,7 @@
 - CI на GitHub Actions (Linux + Windows) и релизы по тегу с готовыми архивами.
 - Двуязычная документация (английский/русский) и локализация `--lang en|ru`.
 
+[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.1.3...HEAD
 [1.1.3]: https://github.com/noxyudev/gramvanity/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/noxyudev/gramvanity/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/noxyudev/gramvanity/compare/v1.1.0...v1.1.1

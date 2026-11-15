@@ -6,6 +6,17 @@ All notable changes to gramvanity are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- `w5addr activate` reports an error instead of a fake "balance 0 GRAM" when toncenter returns an
+  unreadable balance.
+- `w5addr activate` refuses to continue when the account state is `active` but toncenter returned
+  no contract code: it cannot be verified that the address is a Telegram Wallet (fail-closed; an
+  empty code for `uninitialized` stays expected).
+- `w5addr activate --valid-for` is limited to 1..604800 seconds (7 days) instead of silently
+  accepting values that could overflow the message validity window.
+
 ## [1.1.3] - 2026-11-15
 
 ### Fixed
@@ -160,6 +171,7 @@ wallet derives on import. The global changes relative to the original project:
 - CI on GitHub Actions (Linux + Windows) and tag-driven releases with ready archives.
 - Bilingual documentation (English/Russian) and runtime localization `--lang en|ru`.
 
+[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.1.3...HEAD
 [1.1.3]: https://github.com/noxyudev/gramvanity/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/noxyudev/gramvanity/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/noxyudev/gramvanity/compare/v1.1.0...v1.1.1
