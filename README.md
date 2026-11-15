@@ -74,6 +74,35 @@ local.
 
 ## Install
 
+### One-command installer
+
+Downloads the ready release, verifies its SHA-256 and installs it into your user directory — no
+administrator rights, no dev tools, and nothing on the system PATH is changed:
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/noxyudev/gramvanity/main/tools/install-user.ps1 | iex
+```
+
+```sh
+# Linux
+curl -fsSL https://raw.githubusercontent.com/noxyudev/gramvanity/main/tools/install-user.sh | sh
+```
+
+The safer variant is to download the script first, read it, and only then run it
+(`powershell -ExecutionPolicy Bypass -File install-user.ps1`, `sh install-user.sh`). Both accept a
+specific release (`-Version vX.Y.Z` / `--version vX.Y.Z`), a message language
+(`-Lang en|ru` / `--lang en|ru`, or the `GRAMVANITY_LANG` environment variable) and `--dry-run`,
+which prints the plan without changing anything.
+
+The program lands in `%LOCALAPPDATA%\gramvanity` (Windows) or `~/.local/opt/gramvanity` (Linux),
+keeping the layout below. A re-run updates the program files and never touches an existing
+`results/` folder, checkpoints or hit files. After the copy, the installer runs `--selftest-det`
+and `--list-devices`, and clearly separates "files installed" from "GPU ready": a missing OpenCL
+GPU is not an installation error — it means the GPU driver with OpenCL support still has to be
+installed (NVIDIA/AMD/Intel instructions are printed). The GPU driver itself is never installed
+automatically.
+
 ### Prebuilt binaries (recommended)
 
 Download the archive for your system from the releases page and unpack it. A release keeps the
@@ -130,6 +159,51 @@ From then on, run `./gramvanity` in that same shell. The GPU driver already cont
 there is nothing else to install.
 
 After the build, all further commands in this guide run from the `opencl/` folder.
+
+## Developer setup
+
+After cloning the repository, one command prepares the environment, builds both binaries and runs
+the CPU checks. Only missing components are installed; existing programs are never upgraded — when
+the existing Go is missing or too old, a portable copy goes into the tools folder and is connected
+by the session PATH only, and the global PATH is never modified. A fully configured machine passes
+the setup without a single installation.
+
+**Windows** — checks Git, Go, Python 3 and MSYS2, installs only what is missing (winget when
+available; otherwise a portable copy into `%LOCALAPPDATA%\gramvanity-dev`), then runs stage 2 in
+MSYS2 UCRT64: the four pacman packages (`make`, `mingw-w64-ucrt-x86_64-gcc`,
+`mingw-w64-ucrt-x86_64-opencl-headers`, `mingw-w64-ucrt-x86_64-opencl-icd`) and the existing build
+gate `bash ./build-windows.sh --check`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\setup-dev.ps1
+```
+
+**Linux (Ubuntu/Debian)** — installs the missing apt packages with sudo (never running as root),
+builds both binaries and runs `--selftest-det`, `go vet`, `go test` and the documentation checks:
+
+```sh
+./tools/setup-dev-linux.sh
+```
+
+`--with-gpu-tests` additionally checks the OpenCL device, runs a short benchmark and the full GPU
+integration suite (~7 minutes, needs a real GPU).
+
+**Docker** — nothing on the host except Docker; build and CPU checks in the container, the
+repository is mounted so the binaries land on the host in the expected layout:
+
+```sh
+docker build -t gramvanity-build ./docker
+docker run --rm -v "$PWD":/src \
+  -v gramvanity-gomod:/go/pkg/mod -v gramvanity-gocache:/go/cache \
+  gramvanity-build
+```
+
+GPU in the container is reachable only on a Linux host: add `--device /dev/dri` (AMD/Intel/Mesa)
+or use nvidia-container-toolkit (NVIDIA). On Windows and macOS hosts the image serves builds and
+CPU checks only. The full GPU suite inside Docker stays a best-effort scenario on a Linux host.
+
+`--dry-run` on any setup prints the plan (detected / skipped / to be installed) without changing
+anything.
 
 ## First run
 
