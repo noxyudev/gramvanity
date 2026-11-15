@@ -114,6 +114,28 @@ installed" from "GPU ready": a missing OpenCL GPU is not an installation error â
 driver with OpenCL support still has to be installed (NVIDIA/AMD/Intel instructions are printed).
 The GPU driver itself is never installed automatically.
 
+### Uninstall
+
+Both installers ship an uninstaller inside the installation (`tools/uninstall.ps1`,
+`tools/uninstall.sh`). Run it from the install folder:
+
+```powershell
+# Windows
+powershell -ExecutionPolicy Bypass -File tools\uninstall.ps1
+```
+
+```sh
+# Linux
+sh tools/uninstall.sh
+```
+
+By default it removes the program files only and keeps `results/`, checkpoints and hit files
+(they contain the seed phrases). `--full` / `-Full` deletes the user data as well, but only after
+you type `yes`. `-InstallDir <path>` / `--dir <path>` points at another installation, `-Yes` /
+`--yes` skips the prompts, and `--dry-run` / `-DryRun` prints the plan without deleting anything.
+The uninstaller refuses folders without the gramvanity markers and touches nothing outside the
+installation folder; it needs no network.
+
 ### Prebuilt binaries (recommended)
 
 Download the archive for your system from the releases page and unpack it. A release keeps the

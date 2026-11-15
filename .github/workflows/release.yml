@@ -79,10 +79,11 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          mkdir -p dist/opencl dist/verify-go dist/docs
+          mkdir -p dist/opencl dist/verify-go dist/docs dist/tools
           cp opencl/gramvanity dist/opencl/gramvanity
           cp README.md CHANGELOG.md LICENSE NOTICE dist/
           cp docs/tg-wallet.md dist/docs/
+          cp tools/uninstall.sh dist/tools/uninstall.sh
           chmod +x dist/opencl/gramvanity dist/verify-go/w5addr
           name="gramvanity-${{ github.ref_name }}-${{ matrix.platform }}"
           tar -czf "$name.tar.gz" -C dist .
@@ -97,6 +98,8 @@ jobs:
           New-Item -ItemType Directory -Force dist/docs | Out-Null
           Copy-Item README.md, CHANGELOG.md, LICENSE, NOTICE dist/
           Copy-Item docs/tg-wallet.md dist/docs/
+          New-Item -ItemType Directory -Force dist/tools | Out-Null
+          Copy-Item tools/uninstall.ps1 dist/tools/uninstall.ps1
           $name = "gramvanity-${{ github.ref_name }}-${{ matrix.platform }}"
           Compress-Archive -Path dist/* -DestinationPath "$name.zip"
           (Get-FileHash "$name.zip" -Algorithm SHA256).Hash.ToLower() + "  $name.zip" |
@@ -115,9 +118,11 @@ jobs:
           mkdir -p unpack
           tar -xzf "$name.tar.gz" -C unpack
           for f in opencl/gramvanity verify-go/w5addr docs/tg-wallet.md \
+                   tools/uninstall.sh \
                    README.md CHANGELOG.md LICENSE NOTICE; do
             test -s "unpack/$f" || { echo "missing in archive: $f"; exit 1; }
           done
+          sh -n unpack/tools/uninstall.sh
           test -x unpack/opencl/gramvanity
           test -x unpack/verify-go/w5addr
           ./unpack/verify-go/w5addr activate --help >/dev/null
@@ -131,6 +136,7 @@ jobs:
           New-Item -ItemType Directory -Force unpack | Out-Null
           Expand-Archive -Path "$name.zip" -DestinationPath unpack
           foreach ($f in 'opencl/gramvanity.exe','verify-go/w5addr.exe','docs/tg-wallet.md',
+                         'tools/uninstall.ps1',
                          'README.md','CHANGELOG.md','LICENSE','NOTICE') {
             if (-not (Test-Path "unpack/$f") -or (Get-Item "unpack/$f").Length -eq 0) {
               throw "missing or empty in archive: $f"

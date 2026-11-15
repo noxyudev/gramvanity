@@ -261,6 +261,7 @@ try {
     $unpack = Join-Path $tmp 'unpack'
     Expand-Archive -Path $zipPath -DestinationPath $unpack -Force
     foreach ($f in 'opencl/gramvanity.exe', 'verify-go/w5addr.exe', 'docs/tg-wallet.md',
+                   'tools/uninstall.ps1',
                    'README.md', 'CHANGELOG.md', 'LICENSE', 'NOTICE') {
         $p = Join-Path $unpack ($f -replace '/', '\')
         if (-not (Test-Path $p) -or ((Get-Item $p).Length -eq 0)) {
@@ -387,6 +388,9 @@ if ($gpuOk) {
 } else {
     say ('GPU:        not ready (see the driver instructions above)') ('GPU:        не готов (см. инструкции по драйверу выше)')
 }
+say ''
+say ("To remove the program later, run tools\uninstall.ps1 in $target (results\ is kept unless -Full).") `
+    ("Чтобы удалить программу позже, запустите tools\uninstall.ps1 в $target (results\ сохраняется без -Full).")
 say ''
 say ("Next step - measure the speed of your GPU:") ("Следующий шаг - измерьте скорость вашего GPU:")
 say ("  cd '$(Join-Path $target 'opencl')'") ("  cd '$(Join-Path $target 'opencl')'")

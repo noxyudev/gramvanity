@@ -315,7 +315,8 @@ say "SHA-256 verified." "SHA-256 проверен."
 mkdir -p "$TMPDIR_INSTALL/unpack" || exit 1
 tar -xzf "$TMPDIR_INSTALL/$ASSET.tar.gz" -C "$TMPDIR_INSTALL/unpack" \
     || fail "Could not unpack the archive." "Не удалось распаковать архив."
-for f in opencl/gramvanity verify-go/w5addr docs/tg-wallet.md README.md CHANGELOG.md LICENSE NOTICE; do
+for f in opencl/gramvanity verify-go/w5addr docs/tg-wallet.md tools/uninstall.sh \
+         README.md CHANGELOG.md LICENSE NOTICE; do
     [ -s "$TMPDIR_INSTALL/unpack/$f" ] || fail "The archive is incomplete: '$f' is missing or empty." \
                                                   "Архив неполный: '$f' отсутствует или пуст."
 done
@@ -432,6 +433,9 @@ if [ "$GPU_OK" -eq 1 ]; then
 else
     say 'GPU:        not ready (see the driver instructions above)' 'GPU:        не готов (см. инструкции по драйверу выше)'
 fi
+say '' ''
+say "To remove the program later, run tools/uninstall.sh in $TARGET (results/ is kept unless --full)." \
+    "Чтобы удалить программу позже, запустите tools/uninstall.sh в $TARGET (results/ сохраняется без --full)."
 say '' ''
 say 'Next step - measure the speed of your GPU:' 'Следующий шаг - измерьте скорость вашего GPU:'
 say "  cd '$TARGET/opencl'" "  cd '$TARGET/opencl'"
