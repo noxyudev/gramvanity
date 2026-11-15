@@ -16,6 +16,17 @@ versions follow [SemVer](https://semver.org/).
   picked with `--version`, and `--dry-run` prints the plan without changing anything. The GPU
   driver is never installed automatically; without an OpenCL GPU the installer prints
   vendor-specific instructions.
+- Developer setup in one command after cloning: `tools/setup-dev.ps1` plus
+  `tools/setup-dev-msys2.sh` (Windows, MSYS2 UCRT64) and `tools/setup-dev-linux.sh`
+  (Ubuntu/Debian). Only missing components are installed, and an existing Go is never upgraded:
+  a portable one goes into `%LOCALAPPDATA%\gramvanity-dev` / `~/.local/gramvanity-dev` and is
+  connected by the session PATH only, so the global PATH stays unchanged. A fully configured
+  machine passes the setup without a single installation. On Linux, `--with-gpu-tests` adds the
+  benchmark and the full GPU integration suite.
+- Docker build environment (`docker/Dockerfile`): build and CPU checks in a container without
+  installing MSYS2, Go, Python or GCC on the host. The repository is mounted, so the binaries
+  land on the host in the expected `opencl/` + `verify-go/` layout; the GPU is reachable only on
+  Linux hosts (`--device /dev/dri` or nvidia-container-toolkit).
 - The release workflow now unpacks each packaged archive, verifies the expected file layout, runs
   `w5addr activate --help` and (on Linux) `--selftest-det` from the archive before publishing.
 
