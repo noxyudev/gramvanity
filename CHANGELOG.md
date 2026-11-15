@@ -8,6 +8,10 @@ versions follow [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- `make -C opencl embed` uses the configurable `PYTHON` variable (default `python3`); when only
+  `python` is available, run `make embed PYTHON=python`.
+
 ### Fixed
 - `w5addr activate` reports an error instead of a fake "balance 0 GRAM" when toncenter returns an
   unreadable balance.

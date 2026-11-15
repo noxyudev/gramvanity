@@ -14,6 +14,8 @@ and the independent verifier run on the CPU/Go.
 | `verify-go/` | the independent tonutils-go verifier and the `w5addr activate` command for tg-wallet |
 | `docs/` | `architecture.md` (module map and locking), `tg-wallet.md`, and their Russian pairs |
 | `.github/workflows/` | CI (Linux + Windows) and release packaging |
+| `tools/` | `check_i18n.py`, `check_tr.py`, the user installers (`install-user.ps1`, `install-user.sh`) and the developer setup (`setup-dev.ps1`, `setup-dev-msys2.sh`, `setup-dev-linux.sh`) |
+| `docker/` | the container build environment for the developer path (Dockerfile + entry script) |
 | `results/` | run data; contains secrets and is never committed |
 
 Linux (x86_64, arm64) and Windows (x86_64) are supported. The primary local Windows environment is
@@ -144,8 +146,8 @@ After editing any of those files:
 make -C opencl embed
 ```
 
-Python 3 is required. The Makefile target calls `python3`; if only `python` is available, run
-`python opencl/tools/embed.py` from the repository root. The kernel sources are UTF-8 and their
+Python 3 is required. The Makefile target calls `$(PYTHON)` (default `python3`); if only `python`
+is available, run `make -C opencl embed PYTHON=python`. The kernel sources are UTF-8 and their
 bilingual comments land in `embedded.h` verbatim, so a comment-only edit still needs a regenerate.
 Review the `embedded.h` diff and include it in the change. Do not edit `embedded.h` by hand. Details
 are in `opencl/AGENTS.md`.

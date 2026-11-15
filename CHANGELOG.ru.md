@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+### Изменено
+- `make -C opencl embed` использует настраиваемую переменную `PYTHON` (по умолчанию `python3`);
+  если доступен только `python`, запускайте `make embed PYTHON=python`.
+
 ### Исправлено
 - `w5addr activate` сообщает об ошибке вместо фиктивного «balance 0 GRAM», когда toncenter
   возвращает неразбираемый баланс.

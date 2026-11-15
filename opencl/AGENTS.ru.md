@@ -95,8 +95,8 @@ make embed
 - `sha512_consts.h`;
 - `english.txt`.
 
-Нужен Python 3. `make embed` вызывает `python3`; если доступен только `python`, запусти
-`python tools/embed.py` из `opencl/`. Скрипт проверяет SHA-256 словаря, поэтому не меняй
+Нужен Python 3. `make embed` вызывает `$(PYTHON)` (по умолчанию `python3`); если доступен только
+`python`, запусти `make embed PYTHON=python`. Скрипт проверяет SHA-256 словаря, поэтому не меняй
 `english.txt` без понимания последствий. После генерации проверь diff `embedded.h` и включи его
 в изменения. Не редактируй `embedded.h` вручную.
 

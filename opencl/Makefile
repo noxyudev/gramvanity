@@ -6,11 +6,17 @@
 # RU: Windows:  make   (в оболочке MSYS2 UCRT64 или MINGW64, см. README)
 #
 # EN: embedded.h (kernels + wordlist) is generated from sha512_consts.h, kernel.cl, ed25519_gpu.cl
-# EN: and english.txt; regenerate it with `make embed` (needs python3, or python on Windows).
+# EN: and english.txt; regenerate it with `make embed`. It needs Python 3; when only `python` is
+# EN: available, run `make embed PYTHON=python`.
 # RU: embedded.h (ядра + словарь) генерируется из sha512_consts.h, kernel.cl, ed25519_gpu.cl и
-# RU: english.txt; перегенерировать можно командой `make embed` (нужен python3 или python на Windows).
+# RU: english.txt; перегенерировать можно командой `make embed`. Нужен Python 3; если доступен
+# RU: только `python`, запускайте `make embed PYTHON=python`.
 SRC = src/main.c src/platform.c src/options.c src/pattern.c src/crypto.c src/detsearch.c src/addresses.c src/gpu.c src/stats.c src/checkpoint.c src/hits.c src/search.c src/selftest.c src/i18n.c ed25519_fast.c sha256.c third_party/monocypher/monocypher.c third_party/monocypher/monocypher-ed25519.c
 CFLAGS ?= -O3 -Wall -Wextra -Wno-unused-parameter -Wno-format-truncation
+
+# EN: Python interpreter for `make embed` (tools/embed.py); override on the command line.
+# RU: Интерпретатор Python для `make embed` (tools/embed.py); переопределяется из командной строки.
+PYTHON ?= python3
 
 # EN: Platform-specific link libraries and executable suffix. The Makefile does not create object
 # EN: files: every build compiles the whole SRC list into a single binary.
@@ -47,7 +53,7 @@ gramvanity$(EXE): $(SRC) embedded.h sha256.h
 # EN: Regenerate embedded.h after editing kernel.cl, ed25519_gpu.cl, sha512_consts.h or english.txt.
 # RU: Перегенерировать embedded.h после правки kernel.cl, ed25519_gpu.cl, sha512_consts.h или english.txt.
 embed:
-	python3 tools/embed.py
+	$(PYTHON) tools/embed.py
 
 # EN: Remove the built binary; embedded.h stays because it is committed.
 # RU: Удалить собранный бинарник; embedded.h остаётся, потому что хранится в репозитории.

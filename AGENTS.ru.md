@@ -14,6 +14,8 @@ SLIP-10, Ed25519) считается на GPU через OpenCL; проверк�
 | `verify-go/` | независимый верификатор на tonutils-go и подкоманда `w5addr activate` для tg-wallet |
 | `docs/` | `architecture.md` (карта модулей и блокировки), `tg-wallet.md` и их русские пары |
 | `.github/workflows/` | CI (Linux + Windows) и сборка релизов |
+| `tools/` | `check_i18n.py`, `check_tr.py`, пользовательские установщики (`install-user.ps1`, `install-user.sh`) и настройка окружения разработчика (`setup-dev.ps1`, `setup-dev-msys2.sh`, `setup-dev-linux.sh`) |
+| `docker/` | контейнерная среда сборки для разработчика (Dockerfile + скрипт входа) |
 | `results/` | рабочие данные запусков; содержит секреты и в Git не попадает |
 
 Поддерживаются Linux (x86_64, arm64) и Windows (x86_64). Основная локальная среда Windows —
@@ -145,8 +147,8 @@ Go-верификатор нужен для доверенной проверк�
 make -C opencl embed
 ```
 
-Нужен Python 3. Цель Makefile вызывает `python3`; если в окружении есть только `python`,
-запусти `python opencl/tools/embed.py` из корня. Исходники ядер — в UTF-8, и их двуязычные
+Нужен Python 3. Цель Makefile вызывает `$(PYTHON)` (по умолчанию `python3`); если в окружении
+есть только `python`, запусти `make -C opencl embed PYTHON=python`. Исходники ядер — в UTF-8, и их двуязычные
 комментарии попадают в `embedded.h` дословно, поэтому правка только комментария всё равно требует
 перегенерации. Проверь diff `embedded.h` и включи его в изменения. Не редактируй `embedded.h`
 вручную. Подробности — в `opencl/AGENTS.md`.

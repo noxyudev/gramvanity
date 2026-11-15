@@ -95,8 +95,8 @@ Run it after changing:
 - `sha512_consts.h`;
 - `english.txt`.
 
-Python 3 is required. `make embed` calls `python3`; if only `python` is available, run
-`python tools/embed.py` from `opencl/`. The script checks the wordlist SHA-256, so do not change
+Python 3 is required. `make embed` calls `$(PYTHON)` (default `python3`); if only `python` is
+available, run `make embed PYTHON=python`. The script checks the wordlist SHA-256, so do not change
 `english.txt` without understanding the consequences. After generation, review the `embedded.h`
 diff and include it in the change. Do not edit `embedded.h` by hand.
 

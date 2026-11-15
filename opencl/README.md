@@ -77,8 +77,8 @@ From then on, `gramvanity.exe` runs from the MSYS2 shell or a regular command pr
 
 `embedded.h` (kernels + wordlist) is generated and committed, so building needs only a C compiler.
 After editing `kernel.cl`, `ed25519_gpu.cl`, `sha512_consts.h` or `english.txt`, run `make embed`
-(needs `python3`, or `python` on Windows) and commit the result — the build never reads the source
-files directly.
+(needs Python 3; if only `python` is available, run `make embed PYTHON=python`) and commit the
+result — the build never reads the source files directly.
 
 ### Smoke check
 
