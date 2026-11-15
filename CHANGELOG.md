@@ -8,6 +8,10 @@ versions follow [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- The release workflow now unpacks each packaged archive, verifies the expected file layout, runs
+  `w5addr activate --help` and (on Linux) `--selftest-det` from the archive before publishing.
+
 ### Changed
 - `make -C opencl embed` uses the configurable `PYTHON` variable (default `python3`); when only
   `python` is available, run `make embed PYTHON=python`.

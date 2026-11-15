@@ -102,6 +102,43 @@ jobs:
           (Get-FileHash "$name.zip" -Algorithm SHA256).Hash.ToLower() + "  $name.zip" |
             Set-Content "$name.zip.sha256" -Encoding ascii
 
+      # ---------------------------------------------------------------- verify the archive
+      # Unpack the just-built archive and check that every file a release must carry is inside
+      # and that the static verifier starts; where the OpenCL loader is available, also run the
+      # deterministic self-test from the archive layout. A corrupt or incomplete archive fails
+      # the workflow before upload instead of reaching users.
+      - name: Verify the archive (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          name="gramvanity-${{ github.ref_name }}-${{ matrix.platform }}"
+          mkdir -p unpack
+          tar -xzf "$name.tar.gz" -C unpack
+          for f in opencl/gramvanity verify-go/w5addr docs/tg-wallet.md \
+                   README.md CHANGELOG.md LICENSE NOTICE; do
+            test -s "unpack/$f" || { echo "missing in archive: $f"; exit 1; }
+          done
+          test -x unpack/opencl/gramvanity
+          test -x unpack/verify-go/w5addr
+          ./unpack/verify-go/w5addr activate --help >/dev/null
+          ./unpack/opencl/gramvanity --selftest-det
+
+      - name: Verify the archive (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $name = "gramvanity-${{ github.ref_name }}-${{ matrix.platform }}"
+          New-Item -ItemType Directory -Force unpack | Out-Null
+          Expand-Archive -Path "$name.zip" -DestinationPath unpack
+          foreach ($f in 'opencl/gramvanity.exe','verify-go/w5addr.exe','docs/tg-wallet.md',
+                         'README.md','CHANGELOG.md','LICENSE','NOTICE') {
+            if (-not (Test-Path "unpack/$f") -or (Get-Item "unpack/$f").Length -eq 0) {
+              throw "missing or empty in archive: $f"
+            }
+          }
+          & unpack/verify-go/w5addr.exe activate --help *> $null
+          if ($LASTEXITCODE -ne 0) { throw "w5addr activate --help failed with exit code $LASTEXITCODE" }
+
       - uses: actions/upload-artifact@v4
         with:
           name: gramvanity-${{ matrix.platform }}
