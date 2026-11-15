@@ -6,7 +6,17 @@ All notable changes to gramvanity are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [1.2.1] - 2026-11-15
+
+Patch release: the install one-liners work, both installers ask for the install folder, and the
+installation can be removed again.
+
+### Added
+- User uninstallers shipped inside the release (`tools/uninstall.ps1`, `tools/uninstall.sh`):
+  remove the program files and keep `results/`, checkpoints and hit files unless `--full` /
+  `-Full` is given and confirmed by typing `yes`. The uninstaller refuses folders without the
+  gramvanity markers (`opencl/gramvanity`, `verify-go/w5addr`), touches nothing outside the
+  installation folder, and needs no network.
 
 ### Fixed
 - The documented Windows one-command install (`irm ... | iex`) could not run at all: the script is
