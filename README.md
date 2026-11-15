@@ -76,12 +76,12 @@ local.
 
 ### One-command installer
 
-Downloads the ready release, verifies its SHA-256 and installs it into your user directory — no
+Downloads the ready release, verifies its SHA-256 and installs it into a folder you choose — no
 administrator rights, no dev tools, and nothing on the system PATH is changed:
 
 ```powershell
 # Windows (PowerShell)
-irm https://raw.githubusercontent.com/noxyudev/gramvanity/main/tools/install-user.ps1 | iex
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/noxyudev/gramvanity/main/tools/install-user.ps1).TrimStart([char]0xFEFF)))
 ```
 
 ```sh
@@ -89,19 +89,30 @@ irm https://raw.githubusercontent.com/noxyudev/gramvanity/main/tools/install-use
 curl -fsSL https://raw.githubusercontent.com/noxyudev/gramvanity/main/tools/install-user.sh | sh
 ```
 
+The Windows quick variant strips the leading BOM and builds a scriptblock instead of the plain
+`irm | iex`: the script is stored as UTF-8 with a BOM, `Invoke-RestMethod` returns that BOM as a
+character, and the parser then rejects the `param` block — the classic `irm | iex` failure in
+Windows PowerShell 5.1. A scriptblock, unlike `Invoke-Expression`, can also take parameters.
+
+Both installers ask for the installation folder — there is no silent default (an absolute or
+relative path works; spaces are fine; on Windows `~`, `%VAR%` and `$env:VAR` are expanded, on
+Linux a leading `~`). Pass `-InstallDir <path>` (Windows) or `--install-dir <path>` (Linux) to
+answer from the command line — the way to run the installer unattended, and required for
+`--dry-run` without an interactive console.
+
 The safer variant is to download the script first, read it, and only then run it
 (`powershell -ExecutionPolicy Bypass -File install-user.ps1`, `sh install-user.sh`). Both accept a
 specific release (`-Version vX.Y.Z` / `--version vX.Y.Z`), a message language
 (`-Lang en|ru` / `--lang en|ru`, or the `GRAMVANITY_LANG` environment variable) and `--dry-run`,
 which prints the plan without changing anything.
 
-The program lands in `%LOCALAPPDATA%\gramvanity` (Windows) or `~/.local/opt/gramvanity` (Linux),
-keeping the layout below. A re-run updates the program files and never touches an existing
-`results/` folder, checkpoints or hit files. After the copy, the installer runs `--selftest-det`
-and `--list-devices`, and clearly separates "files installed" from "GPU ready": a missing OpenCL
-GPU is not an installation error — it means the GPU driver with OpenCL support still has to be
-installed (NVIDIA/AMD/Intel instructions are printed). The GPU driver itself is never installed
-automatically.
+The release layout (`opencl/`, `verify-go/`, docs) is kept inside the chosen folder. A re-run
+updates the program files and never touches an existing `results/` folder, checkpoints or hit
+files. After the
+copy, the installer runs `--selftest-det` and `--list-devices`, and clearly separates "files
+installed" from "GPU ready": a missing OpenCL GPU is not an installation error — it means the GPU
+driver with OpenCL support still has to be installed (NVIDIA/AMD/Intel instructions are printed).
+The GPU driver itself is never installed automatically.
 
 ### Prebuilt binaries (recommended)
 

@@ -78,12 +78,12 @@ gramvanity делает более медленную, но честную ве�
 
 ### Установщик в одну команду
 
-Скачивает готовый релиз, проверяет его SHA-256 и устанавливает в пользовательский каталог — без
-прав администратора, без средств разработки и без изменения системного PATH:
+Скачивает готовый релиз, проверяет его SHA-256 и устанавливает в выбранную вами папку — без прав
+администратора, без средств разработки и без изменения системного PATH:
 
 ```powershell
 # Windows (PowerShell)
-irm https://raw.githubusercontent.com/noxyudev/gramvanity/main/tools/install-user.ps1 | iex
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/noxyudev/gramvanity/main/tools/install-user.ps1).TrimStart([char]0xFEFF)))
 ```
 
 ```sh
@@ -91,19 +91,30 @@ irm https://raw.githubusercontent.com/noxyudev/gramvanity/main/tools/install-use
 curl -fsSL https://raw.githubusercontent.com/noxyudev/gramvanity/main/tools/install-user.sh | sh
 ```
 
+Быстрый вариант для Windows снимает начальный BOM и собирает scriptblock вместо обычного
+`irm | iex`: скрипт хранится в UTF-8 с BOM, `Invoke-RestMethod` возвращает этот BOM как символ,
+и парсер после этого отвергает `param`-блок — классический отказ `irm | iex` в Windows PowerShell
+5.1. Scriptblock, в отличие от `Invoke-Expression`, может ещё и принимать параметры.
+
+Оба установщика запрашивают папку установки — молчаливого значения по умолчанию больше нет
+(подойдёт абсолютный или относительный путь; пробелы допустимы; в Windows раскрываются `~`, `%VAR%`
+и `$env:VAR`, в Linux — ведущий `~`). Передайте `-InstallDir <путь>` (Windows) или
+`--install-dir <путь>` (Linux), чтобы ответить из командной строки, — это способ запустить
+установщик без участия человека, и он же нужен для `--dry-run` без интерактивной консоли.
+
 Более безопасный вариант — сначала скачать скрипт отдельным файлом, просмотреть его и только потом
 запустить (`powershell -ExecutionPolicy Bypass -File install-user.ps1`, `sh install-user.sh`).
 Оба принимают конкретный релиз (`-Version vX.Y.Z` / `--version vX.Y.Z`), язык сообщений
 (`-Lang en|ru` / `--lang en|ru`, или переменная окружения `GRAMVANITY_LANG`) и `--dry-run`,
 который печатает план действий, ничего не меняя.
 
-Программа оказывается в `%LOCALAPPDATA%\gramvanity` (Windows) или `~/.local/opt/gramvanity`
-(Linux) с раскладкой ниже. Повторный запуск обновляет программные файлы и никогда не трогает
-существующий `results/`, checkpoints и hit-файлы. После копирования установщик выполняет
-`--selftest-det` и `--list-devices` и явно разделяет «файлы установлены» и «GPU готов»: отсутствие
-GPU с OpenCL — не ошибка установки, это значит, что драйвер GPU с поддержкой OpenCL ещё нужно
-установить (выводятся инструкции для NVIDIA/AMD/Intel). Сам драйвер GPU автоматически не
-устанавливается никогда.
+Раскладка релиза (`opencl/`, `verify-go/`, документация) сохраняется внутри выбранной папки.
+Повторный запуск обновляет программные файлы и никогда не трогает существующий `results/`,
+checkpoints и hit-файлы.
+После копирования установщик выполняет `--selftest-det` и `--list-devices` и явно разделяет «файлы
+установлены» и «GPU готов»: отсутствие GPU с OpenCL — не ошибка установки, это значит, что драйвер
+GPU с поддержкой OpenCL ещё нужно установить (выводятся инструкции для NVIDIA/AMD/Intel). Сам
+драйвер GPU автоматически не устанавливается никогда.
 
 ### Готовые бинарники (рекомендуется)
 

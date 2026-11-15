@@ -6,6 +6,28 @@ All notable changes to gramvanity are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- The documented Windows one-command install (`irm ... | iex`) could not run at all: the script is
+  stored as UTF-8 with a BOM, `Invoke-RestMethod` returns that BOM as a character, and the
+  PowerShell parser rejects the `param` block after it. The quick variant is now
+  `& ([scriptblock]::Create((irm <url>).TrimStart([char]0xFEFF)))`, which works in Windows
+  PowerShell 5.1 and can take parameters.
+- install-user.sh reported "GPU: ready for the search" even when the installed binary could not
+  start at all (for example, libOpenCL.so.1 missing on a server without GPU drivers): the
+  readiness check ignored the exit code, and the loader error text was dropped from the output.
+  The check now requires exit 0, the loader error stays visible, and a missing OpenCL ICD loader
+  gets its own explanation with the apt package name.
+
+### Changed
+- `install-user.ps1` and `install-user.sh` no longer silently pick `%LOCALAPPDATA%\gramvanity` /
+  `~/.local/opt/gramvanity`: both ask for the installation folder, and there is no silent default.
+  `~`, `%VAR%` and `$env:VAR` (Windows) or a leading `~` (Linux) are expanded, relative paths
+  work, and root folders are refused. `-InstallDir <path>` / `--install-dir <path>` answer the
+  prompt from the command line and are required for unattended runs and for `--dry-run` without
+  an interactive console.
+
 ## [1.2.0] - 2026-11-15
 
 Installation and developer-experience release: a verified one-command installer for players,
