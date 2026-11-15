@@ -9,6 +9,13 @@ versions follow [SemVer](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- One-command user installers (`tools/install-user.ps1`, `tools/install-user.sh`): download the
+  ready release, verify its SHA-256 and install it into `%LOCALAPPDATA%\gramvanity` /
+  `~/.local/opt/gramvanity` without administrator rights, run `--selftest-det` and
+  `--list-devices`, and never touch an existing `results/` folder. A specific release can be
+  picked with `--version`, and `--dry-run` prints the plan without changing anything. The GPU
+  driver is never installed automatically; without an OpenCL GPU the installer prints
+  vendor-specific instructions.
 - The release workflow now unpacks each packaged archive, verifies the expected file layout, runs
   `w5addr activate --help` and (on Linux) `--selftest-det` from the archive before publishing.
 
