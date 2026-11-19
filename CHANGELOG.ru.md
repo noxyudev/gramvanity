@@ -6,7 +6,17 @@
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/); версии — по
 [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [1.2.2] - 2026-11-19
+
+Патч-релиз: документированные команды для Windows одинаково работают в MSYS2, CMD и PowerShell, а
+исправление установщика из `main` включено в релиз.
+
+### Изменено
+- Все примеры команд в README и руководствах теперь используют нейтральную для Windows форму
+  `.\\gramvanity.exe` и двойные кавычки вокруг шаблонов, поэтому одна и та же строка работает в
+  MSYS2 bash, CMD и PowerShell. В Linux/macOS эквивалент — `./gramvanity`; документация говорит об
+  этом явно. В примерах запусков, где формат фразы не важен, теперь указан `--mode tg-wallet`
+  вместо `--mode bip39-12`.
 
 ### Исправлено
 - Установщики для Windows больше не падают с `Windows x86_64 is required; this machine reports ''`,
@@ -246,7 +256,7 @@
 - CI на GitHub Actions (Linux + Windows) и релизы по тегу с готовыми архивами.
 - Двуязычная документация (английский/русский) и локализация `--lang en|ru`.
 
-[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.2.1...HEAD
+[1.2.2]: https://github.com/noxyudev/gramvanity/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/noxyudev/gramvanity/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/noxyudev/gramvanity/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/noxyudev/gramvanity/compare/v1.1.2...v1.1.3

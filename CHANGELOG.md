@@ -6,7 +6,17 @@ All notable changes to gramvanity are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [1.2.2] - 2026-11-19
+
+Patch release: the documented Windows commands work unchanged in MSYS2, CMD and PowerShell, and the
+installer architecture fix from `main` is included.
+
+### Changed
+- Every command example in the READMEs and guides now uses the Windows-neutral `.\\gramvanity.exe`
+  form and double quotes around patterns, so the same line works in MSYS2 bash, CMD and PowerShell.
+  On Linux/macOS the equivalent form is `./gramvanity`; the documentation says so explicitly.
+  Example runs where the phrase format does not matter now use `--mode tg-wallet` instead of
+  `--mode bip39-12`.
 
 ### Fixed
 - The Windows installers no longer fail with `Windows x86_64 is required; this machine reports ''`
@@ -242,7 +252,7 @@ wallet derives on import. The global changes relative to the original project:
 - CI on GitHub Actions (Linux + Windows) and tag-driven releases with ready archives.
 - Bilingual documentation (English/Russian) and runtime localization `--lang en|ru`.
 
-[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.2.1...HEAD
+[1.2.2]: https://github.com/noxyudev/gramvanity/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/noxyudev/gramvanity/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/noxyudev/gramvanity/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/noxyudev/gramvanity/compare/v1.1.2...v1.1.3
