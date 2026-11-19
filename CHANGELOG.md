@@ -233,6 +233,7 @@ wallet derives on import. The global changes relative to the original project:
 - CI on GitHub Actions (Linux + Windows) and tag-driven releases with ready archives.
 - Bilingual documentation (English/Russian) and runtime localization `--lang en|ru`.
 
+[1.2.1]: https://github.com/noxyudev/gramvanity/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/noxyudev/gramvanity/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/noxyudev/gramvanity/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/noxyudev/gramvanity/compare/v1.1.1...v1.1.2
