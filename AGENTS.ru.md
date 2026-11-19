@@ -129,7 +129,7 @@ gramvanity/
     └── w5addr.exe
 ```
 
-Поиск ищет верификатор относительно `opencl/` (`../verify-go/w5addr[.exe]`) и пишет результаты
+Поиск ищет верификатор относительно `opencl/` (`..\\verify-go\\w5addr[.exe]`) и пишет результаты
 в `../results/`. Не перемещай бинарники по отдельности и не меняй эту раскладку. Бинарники
 игнорируются Git — не коммить их.
 
@@ -169,7 +169,7 @@ make -C opencl embed
 Минимум после изменений в C/OpenCL:
 
 ```bash
-./opencl/gramvanity.exe --selftest-det
+.\\opencl\\gramvanity.exe --selftest-det
 ```
 
 `--selftest-det` не требует GPU (~70 детерминированных проверок), но не заменяет проверку
@@ -191,8 +191,8 @@ python3 tools/check_i18n.py
 GPU-проверки, если задача их затрагивает:
 
 ```bash
-./opencl/gramvanity.exe --list-devices
-./opencl/gramvanity.exe --mode bip39-12 --bench 60
+.\\opencl\\gramvanity.exe --list-devices
+.\\opencl\\gramvanity.exe --mode tg-wallet --bench 60
 sh opencl/tests/test_det.sh
 ```
 

@@ -67,8 +67,8 @@ make
 make LIBS="-lOpenCL -lbcrypt -static-libgcc"
 ```
 
-С этого момента `gramvanity.exe` запускается как из оболочки MSYS2, так и из обычной командной
-строки.
+С этого момента `gramvanity.exe` запускается из MSYS2, CMD и PowerShell; в примерах ниже
+используется форма `.\\gramvanity.exe`, которая одинаково работает во всех трёх оболочках.
 
 ### Цели Make
 
@@ -87,16 +87,18 @@ make LIBS="-lOpenCL -lbcrypt -static-libgcc"
 ### Быстрая проверка
 
 ```sh
-./gramvanity --list-devices                              # GPU, видимые OpenCL
-./gramvanity --mode bip39-12 --bench 60                  # тест скорости на минуту, ничего не находит
+.\\gramvanity.exe --list-devices                              # GPU, видимые OpenCL
+.\\gramvanity.exe --mode tg-wallet --bench 60                  # тест скорости на минуту, ничего не находит
 ```
+
+В Linux/macOS используйте `./gramvanity` в тех же командах.
 
 Для реального поиска — шаблоны, цели, продолжение — следуйте [основному README](../README.ru.md).
 
 ## Тесты
 
 ```sh
-./gramvanity --selftest-det   # детерминированный поиск и unit-тесты целей, GPU не нужен
+.\\gramvanity.exe --selftest-det   # детерминированный поиск и unit-тесты целей, GPU не нужен
 sh tests/test_det.sh          # сквозные тесты на GPU: остановка/продолжение/крэш/хит/повтор/цели
 ```
 

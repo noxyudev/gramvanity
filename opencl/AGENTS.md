@@ -109,14 +109,14 @@ with the regenerated header.
 Baseline, no GPU:
 
 ```bash
-./gramvanity.exe --selftest-det
+.\\gramvanity.exe --selftest-det
 ```
 
 GPU and integration checks:
 
 ```bash
-./gramvanity.exe --list-devices
-./gramvanity.exe --mode bip39-12 --bench 60
+.\\gramvanity.exe --list-devices
+.\\gramvanity.exe --mode tg-wallet --bench 60
 sh tests/test_det.sh
 ```
 
@@ -152,7 +152,7 @@ python3 tools/check_i18n.py
 - Shared state belongs to exactly one module and is exported through its header. Follow the lock
   discipline: `hit_lock`, `stat_lock`, `checkpoint_lock`, `finish_lock`; do not narrow critical
   sections without the full `tests/test_det.sh` suite.
-- `search` starts `../verify-go/w5addr[.exe]` and exchanges JSON lines
+- `search` starts `..\\verify-go\\w5addr[.exe]` and exchanges JSON lines
   (`{"words","mode","net"}` → `{uq,eq,pub,...}`). When changing the format, update both sides and the
   Go tests.
 - The checkpoint is the text format "gramvanity-checkpoint" (one `key = value` per line, `[target]`

@@ -75,14 +75,15 @@ SemVer. Два файла — языковая пара: менять оба в 
 3. Если менялись `opencl/kernel.cl`, `opencl/ed25519_gpu.cl`,
    `opencl/sha512_consts.h` или `opencl/english.txt`: `make -C opencl
    embed`, проверить diff `opencl/embedded.h` и включить его в изменение.
-4. Локальная проверка (`AGENTS.ru.md` → «Проверка»):
-   - `./opencl/gramvanity.exe --selftest-det` — после любого изменения
+4. Локальная проверка (`AGENTS.ru.md` → «Проверка»; в Linux/macOS используйте
+   `./opencl/gramvanity` вместо `.\\opencl\\gramvanity.exe`):
+   - `.\\opencl\\gramvanity.exe --selftest-det` — после любого изменения
      C/OpenCL;
    - `go vet ./verify-go` и `go test -count=1 ./verify-go` — после
      изменения верификатора;
    - `bash ./build-windows.sh --check` — полный гейт сборки Windows;
-   - если менялся GPU-путь: `./opencl/gramvanity.exe --list-devices`,
-     короткий прогон `--mode bip39-12 --bench 60` и
+   - если менялся GPU-путь: `.\\opencl\\gramvanity.exe --list-devices`,
+     короткий прогон `--mode tg-wallet --bench 60` и
      `sh opencl/tests/test_det.sh` (нужен GPU; только локально — CI
      выполнить его не может).
 5. Оба журнала изменений несут изменения релиза под `[Unreleased]`.

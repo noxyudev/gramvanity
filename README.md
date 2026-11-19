@@ -147,9 +147,9 @@ opencl/gramvanity        # or opencl/gramvanity.exe — the search
 verify-go/w5addr         # or verify-go/w5addr.exe — the independent verifier / tg-wallet activator
 ```
 
-Unpack it anywhere, `cd opencl`, and run `./gramvanity` (Windows: `.\gramvanity.exe`). Do not move
-the two files apart, and keep the `opencl/` and `verify-go/` folders side by side. No installation
-step is needed.
+Unpack it anywhere, `cd opencl`, and run `.\\gramvanity.exe` (on Linux/macOS: `./gramvanity`). Do not
+move the two files apart, and keep the `opencl/` and `verify-go/` folders side by side. No
+installation step is needed.
 
 ### Build from source
 
@@ -188,10 +188,12 @@ cd /c/path/to/gramvanity/opencl
 make
 ```
 
-From then on, run `./gramvanity` in that same shell. The GPU driver already contains OpenCL, so
-there is nothing else to install.
+From then on, run `.\\gramvanity.exe` in that same shell; the same form works in CMD and PowerShell.
+The GPU driver already contains OpenCL, so there is nothing else to install.
 
-After the build, all further commands in this guide run from the `opencl/` folder.
+After the build, all further commands in this guide run from the `opencl/` folder. The examples use
+`.\\gramvanity.exe`, which works unchanged in MSYS2, CMD and PowerShell, and double quotes around
+patterns; on Linux/macOS use `./gramvanity` and the same double quotes.
 
 ## Developer setup
 
@@ -243,9 +245,9 @@ anything.
 From the `opencl/` folder:
 
 ```sh
-./gramvanity --list-devices                               # show the GPUs OpenCL can see
-./gramvanity --mode bip39-12 --bench 60                   # 1-minute speed test
-./gramvanity --mode bip39-12 --bench 60 --power 100       # same at full speed
+.\\gramvanity.exe --list-devices                               # show the GPUs OpenCL can see
+.\\gramvanity.exe --mode tg-wallet --bench 60                   # 1-minute speed test
+.\\gramvanity.exe --mode tg-wallet --bench 60 --power 100       # same at full speed
 ```
 
 `--bench` only measures speed; it finds nothing. The first 10–20 seconds are also used to tune the
@@ -258,11 +260,11 @@ usable and the fans quiet. Use `--power 100` if you want the maximum rate.
 
 ```sh
 # address ends with HELLO (any single lowercase letter or _ before it)
-./gramvanity --suffix '[a-z_]HELLO' --mode bip39-12
+.\\gramvanity.exe --suffix "[a-z_]HELLO" --mode tg-wallet
 ```
 
-Without `--mode` the default is `tg-wallet` (Telegram Wallet, 24 words and activation). The example
-above asks for `bip39-12`, which Tonkeeper and My Wallet import directly.
+Without `--mode` the default is `tg-wallet` (Telegram Wallet, 24 words and activation). Add
+`--mode bip39-12` if you want a phrase that Tonkeeper and My Wallet import directly.
 
 A run stops after the first saved hit by default (`--count 1` per target). Pass `--count N` to
 collect several addresses for the same pattern, and `--all-patterns` to apply the count to every
@@ -302,11 +304,11 @@ the independent verifier (when installed) to confirm the address before it repor
 Examples:
 
 ```sh
-./gramvanity --suffix '777' --mode bip39-12
-./gramvanity --suffix '[Hh]ELLO' --mode bip39-12          # HELLO or hELLO
-./gramvanity --prefix BOND --suffix '777' --mode bip39-12 # starts with BOND, ends with 777
-./gramvanity --suffix 'HELLO,BOND' --mode bip39-12        # either ending
-./gramvanity --prefix BOND --suffix '777' --match or --mode bip39-12 # BOND at the start or 777 at the end
+.\\gramvanity.exe --suffix "777" --mode tg-wallet
+.\\gramvanity.exe --suffix "[Hh]ELLO" --mode tg-wallet          # HELLO or hELLO
+.\\gramvanity.exe --prefix BOND --suffix "777" --mode tg-wallet # starts with BOND, ends with 777
+.\\gramvanity.exe --suffix "HELLO,BOND" --mode tg-wallet        # either ending
+.\\gramvanity.exe --prefix BOND --suffix "777" --match or --mode tg-wallet # BOND at the start or 777 at the end
 ```
 
 ## How long it takes
@@ -351,10 +353,10 @@ Each search block starts with `--target [NAME]`. Everything after it belongs to 
 the next `--target`:
 
 ```sh
-./gramvanity --mode bip39-12 \
-  --target HELLO --suffix '[a-z_]HELLO' --count 1 \
-  --target BOND  --prefix BOND --suffix '777' --count 2 \
-  --target SHORT --prefix '[A-Z]' --suffix 'X'
+.\\gramvanity.exe --mode tg-wallet \
+  --target HELLO --suffix "[a-z_]HELLO" --count 1 \
+  --target BOND  --prefix BOND --suffix "777" --count 2 \
+  --target SHORT --prefix "[A-Z]" --suffix "X"
 ```
 
 Rules, in plain words:
@@ -372,7 +374,7 @@ Rules, in plain words:
   pattern.
 - `--all-patterns` moves the count from the target to its pattern variants: `--count N` then applies
   to every prefix and every ending of the target, and the search runs until each one has N hits.
-  For example `--target PASHA --suffix '[_-]Pasha' --suffix '[_-]PASHA' --count 1 --all-patterns`
+  For example `--target PASHA --suffix "[_-]Pasha" --suffix "[_-]PASHA" --count 1 --all-patterns`
   finds one address per variant instead of stopping at the first. A hit counts toward every pattern
   it matches, and hits that fill no still-missing variant are reported but not saved. The flag works
   as a global default too and is stored in the checkpoint (so a resumed job keeps it, and it can be
@@ -445,11 +447,11 @@ the phrase, the wallet must be created and switched to the signing key in one me
 Go verifier does exactly that:
 
 ```sh
-../verify-go/w5addr activate --phrase "w1 … w24" --check    # address, balance, state
-../verify-go/w5addr activate --phrase "w1 … w24" --send     # deploy + rotate (needs >= 0.02 GRAM)
+..\\verify-go\\w5addr.exe activate --phrase "w1 … w24" --check    # address, balance, state
+..\\verify-go\\w5addr.exe activate --phrase "w1 … w24" --send     # deploy + rotate (needs >= 0.02 GRAM)
 ```
 
-On Windows use `..\verify-go\w5addr.exe`. Fund the address first (0.05–0.1 TON is comfortable), wait
+On Linux/macOS use `../verify-go/w5addr`. Fund the address first (0.05–0.1 TON is comfortable), wait
 for `--check` to see the balance, then send. On testnet use `--net testnet` and get free GRAM from
 [https://t.me/testgiver_ton_bot](https://t.me/testgiver_ton_bot).
 
@@ -472,26 +474,26 @@ different phrases. To continue a job, use `--resume` with its checkpoint — a f
 
 ```sh
 # deterministic and resumable; stops after the first hit (default --count 1)
-./gramvanity --mode bip39-12 --suffix '[a-z_]HELLO'
+.\\gramvanity.exe --mode tg-wallet --suffix "[a-z_]HELLO"
 
 # five addresses for the same pattern
-./gramvanity --mode bip39-12 --suffix '[a-z_]HELLO' --count 5
+.\\gramvanity.exe --mode tg-wallet --suffix "[a-z_]HELLO" --count 5
 
 # a bounded range: three million candidates starting at index 1,000,000,000
-./gramvanity --mode bip39-12 --suffix '[a-z_]HELLO' --start-offset 1000000000 --tries 3000000
+.\\gramvanity.exe --mode tg-wallet --suffix "[a-z_]HELLO" --start-offset 1000000000 --tries 3000000
 
 # continue later (the stop file prints this exact command)
-./gramvanity --resume ../results/job-20261028-101500/job.checkpoint
+.\\gramvanity.exe --resume ../results/job-20261028-101500/job.checkpoint
 
 # after a hit the default count is full: ask for one more address and extend the range
-./gramvanity --resume job.checkpoint --count 2 --tries 2000000
+.\\gramvanity.exe --resume job.checkpoint --count 2 --tries 2000000
 
 # recover a hit without the phrase in the file
-./gramvanity --reveal job.checkpoint 123456
-./gramvanity --mode bip39-12 --derive <64-hex search key> 123456
+.\\gramvanity.exe --reveal job.checkpoint 123456
+.\\gramvanity.exe --mode tg-wallet --derive <64-hex search key> 123456
 
 # inspect a checkpoint (the secret key is not printed)
-./gramvanity --checkpoint-info job.checkpoint
+.\\gramvanity.exe --checkpoint-info job.checkpoint
 ```
 
 `--random` opts out: every candidate is fresh OS randomness, there is no search key, and nothing can
@@ -524,8 +526,8 @@ checksum); `--resume` refuses a file whose checksum no longer matches:
 
 ```sh
 # raise t1's count by hand, then legalize the edit and continue
-./gramvanity --checkpoint-fix ../results/job-20261028-101500/job.checkpoint
-./gramvanity --resume ../results/job-20261028-101500/job.checkpoint
+.\\gramvanity.exe --checkpoint-fix ../results/job-20261028-101500/job.checkpoint
+.\\gramvanity.exe --resume ../results/job-20261028-101500/job.checkpoint
 ```
 
 Do not edit the `key` line: the search key is what makes every index reproducible, and a changed
@@ -539,10 +541,10 @@ targets that have not reached their `--count` yet:
 
 ```sh
 # merge two job folders into a new job folder (default: results/job-<UTC timestamp>)
-./gramvanity --checkpoint-merge --in ../results/job-20261101-090000 --in ../results/job-20261104-174407
+.\\gramvanity.exe --checkpoint-merge --in ../results/job-20261101-090000 --in ../results/job-20261104-174407
 
 # or name the inputs and the output folder explicitly
-./gramvanity --checkpoint-merge --in ../results/job-A/job.checkpoint --in ../results/job-B/job.checkpoint --out ../results/merged
+.\\gramvanity.exe --checkpoint-merge --in ../results/job-A/job.checkpoint --in ../results/job-B/job.checkpoint --out ../results/merged
 ```
 
 `--in` takes a checkpoint file or a job folder (its `job.checkpoint`); repeat it for every input.

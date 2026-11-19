@@ -109,14 +109,14 @@ make embed
 Базовые, без GPU:
 
 ```bash
-./gramvanity.exe --selftest-det
+.\\gramvanity.exe --selftest-det
 ```
 
 GPU- и интеграционные проверки:
 
 ```bash
-./gramvanity.exe --list-devices
-./gramvanity.exe --mode bip39-12 --bench 60
+.\\gramvanity.exe --list-devices
+.\\gramvanity.exe --mode tg-wallet --bench 60
 sh tests/test_det.sh
 ```
 
@@ -151,7 +151,7 @@ python3 tools/check_i18n.py
 - Общее состояние принадлежит одному модулю и экспортируется через его заголовок. Соблюдай
   дисциплину блокировок: `hit_lock`, `stat_lock`, `checkpoint_lock`, `finish_lock`; не сужай
   критические секции без полного `tests/test_det.sh`.
-- `search` запускает `../verify-go/w5addr[.exe]` и обменивается JSON-строками
+- `search` запускает `..\\verify-go\\w5addr[.exe]` и обменивается JSON-строками
   (`{"words","mode","net"}` → `{uq,eq,pub,...}`). Меняя формат, обнови обе стороны и Go-тесты.
 - Checkpoint — текстовый формат "gramvanity-checkpoint" (по одному `ключ = значение` на строку,
   секции `[target]`, последняя строка контрольной суммы SHA-256; см. `docs/architecture.md`).

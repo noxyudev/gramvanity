@@ -148,8 +148,8 @@ opencl/gramvanity        # или opencl/gramvanity.exe — сам поиск
 verify-go/w5addr         # или verify-go/w5addr.exe — независимый верификатор / активатор tg-wallet
 ```
 
-Распакуйте куда угодно, перейдите в `opencl` и запустите `./gramvanity` (Windows:
-`.\gramvanity.exe`). Не разносите два файла по разным местам и держите папки `opencl/` и
+Распакуйте куда угодно, перейдите в `opencl` и запустите `.\\gramvanity.exe` (в Linux/macOS:
+`./gramvanity`). Не разносите два файла по разным местам и держите папки `opencl/` и
 `verify-go/` рядом. Установка не требуется.
 
 ### Сборка из исходников
@@ -189,10 +189,12 @@ cd /c/path/to/gramvanity/opencl
 make
 ```
 
-С этого момента запускайте `./gramvanity` в той же оболочке. Драйвер GPU уже содержит OpenCL,
-поэтому больше ничего устанавливать не нужно.
+С этого момента запускайте `.\\gramvanity.exe` в той же оболочке; эта же форма работает в CMD и
+PowerShell. Драйвер GPU уже содержит OpenCL, поэтому больше ничего устанавливать не нужно.
 
-После сборки все дальнейшие команды в этом руководстве выполняются из папки `opencl/`.
+После сборки все дальнейшие команды в этом руководстве выполняются из папки `opencl/`. В примерах
+используется `.\\gramvanity.exe`, что одинаково работает в MSYS2, CMD и PowerShell, и двойные
+кавычки вокруг шаблонов; в Linux/macOS используйте `./gramvanity` и те же двойные кавычки.
 
 ## Настройка окружения разработчика
 
@@ -246,9 +248,9 @@ Linux-хосте.
 Из папки `opencl/`:
 
 ```sh
-./gramvanity --list-devices                               # показать GPU, которые видит OpenCL
-./gramvanity --mode bip39-12 --bench 60                   # тест скорости на 1 минуту
-./gramvanity --mode bip39-12 --bench 60 --power 100       # то же на полной скорости
+.\\gramvanity.exe --list-devices                               # показать GPU, которые видит OpenCL
+.\\gramvanity.exe --mode tg-wallet --bench 60                   # тест скорости на 1 минуту
+.\\gramvanity.exe --mode tg-wallet --bench 60 --power 100       # то же на полной скорости
 ```
 
 `--bench` только измеряет скорость; он ничего не находит. Первые 10–20 секунд также используются
@@ -261,11 +263,11 @@ Linux-хосте.
 
 ```sh
 # адрес заканчивается на HELLO (перед ним — любая строчная буква или _)
-./gramvanity --suffix '[a-z_]HELLO' --mode bip39-12
+.\\gramvanity.exe --suffix "[a-z_]HELLO" --mode tg-wallet
 ```
 
-Без `--mode` используется `tg-wallet` (Telegram Wallet, 24 слова и активация). В примере выше
-указан `bip39-12`, который Tonkeeper и My Wallet импортируют напрямую.
+Без `--mode` используется `tg-wallet` (Telegram Wallet, 24 слова и активация). Добавьте
+`--mode bip39-12`, если нужна фраза, которую Tonkeeper и My Wallet импортируют напрямую.
 
 По умолчанию запуск останавливается после первого сохранённого хита (`--count 1` на цель).
 Передайте `--count N`, чтобы собрать несколько адресов для одного шаблона, и `--all-patterns`,
@@ -308,11 +310,11 @@ Linux-хосте.
 Примеры:
 
 ```sh
-./gramvanity --suffix '777' --mode bip39-12
-./gramvanity --suffix '[Hh]ELLO' --mode bip39-12          # HELLO или hELLO
-./gramvanity --prefix BOND --suffix '777' --mode bip39-12 # начинается с BOND, заканчивается на 777
-./gramvanity --suffix 'HELLO,BOND' --mode bip39-12        # любое из окончаний
-./gramvanity --prefix BOND --suffix '777' --match or --mode bip39-12 # BOND в начале или 777 в конце
+.\\gramvanity.exe --suffix "777" --mode tg-wallet
+.\\gramvanity.exe --suffix "[Hh]ELLO" --mode tg-wallet          # HELLO или hELLO
+.\\gramvanity.exe --prefix BOND --suffix "777" --mode tg-wallet # начинается с BOND, заканчивается на 777
+.\\gramvanity.exe --suffix "HELLO,BOND" --mode tg-wallet        # любое из окончаний
+.\\gramvanity.exe --prefix BOND --suffix "777" --match or --mode tg-wallet # BOND в начале или 777 в конце
 ```
 
 ## Сколько времени это занимает
@@ -359,10 +361,10 @@ CPU и по умолчанию — внешним верификатором `w5
 следующего `--target`:
 
 ```sh
-./gramvanity --mode bip39-12 \
-  --target HELLO --suffix '[a-z_]HELLO' --count 1 \
-  --target BOND  --prefix BOND --suffix '777' --count 2 \
-  --target SHORT --prefix '[A-Z]' --suffix 'X'
+.\\gramvanity.exe --mode tg-wallet \
+  --target HELLO --suffix "[a-z_]HELLO" --count 1 \
+  --target BOND  --prefix BOND --suffix "777" --count 2 \
+  --target SHORT --prefix "[A-Z]" --suffix "X"
 ```
 
 Правила простыми словами:
@@ -380,7 +382,7 @@ CPU и по умолчанию — внешним верификатором `w5
   адресов для одного шаблона.
 - `--all-patterns` переносит счётчик с цели на её варианты шаблона: `--count N` применяется к
   каждому префиксу и каждому окончанию цели, и поиск идёт, пока у каждого варианта не будет N
-  хитов. Например, `--target PASHA --suffix '[_-]Pasha' --suffix '[_-]PASHA' --count 1
+  хитов. Например, `--target PASHA --suffix "[_-]Pasha" --suffix "[_-]PASHA" --count 1
   --all-patterns` находит один адрес на вариант вместо остановки на первом. Хит засчитывается
   каждому шаблону, которому он соответствует, а хиты, не заполняющие ни один ещё не заполненный
   вариант, сообщаются, но не сохраняются. Флаг работает и как глобальное значение по умолчанию, и
@@ -457,11 +459,11 @@ Wallet примет фразу, кошелёк нужно создать и пе
 Входящий в комплект Go-верификатор делает именно это:
 
 ```sh
-../verify-go/w5addr activate --phrase "w1 … w24" --check    # адрес, баланс, состояние
-../verify-go/w5addr activate --phrase "w1 … w24" --send     # deploy + rotate (нужно >= 0.02 GRAM)
+..\\verify-go\\w5addr.exe activate --phrase "w1 … w24" --check    # адрес, баланс, состояние
+..\\verify-go\\w5addr.exe activate --phrase "w1 … w24" --send     # deploy + rotate (нужно >= 0.02 GRAM)
 ```
 
-На Windows используйте `..\verify-go\w5addr.exe`. Сначала пополните адрес (0,05–0,1 TON —
+В Linux/macOS используйте `../verify-go/w5addr`. Сначала пополните адрес (0,05–0,1 TON —
 комфортно), дождитесь, пока `--check` увидит баланс, затем отправляйте. В testnet используйте
 `--net testnet` и получите бесплатный GRAM у
 [https://t.me/testgiver_ton_bot](https://t.me/testgiver_ton_bot).
@@ -486,26 +488,26 @@ Wallet примет фразу, кошелёк нужно создать и пе
 
 ```sh
 # детерминированно и возобновляемо; останавливается после первого хита (по умолчанию --count 1)
-./gramvanity --mode bip39-12 --suffix '[a-z_]HELLO'
+.\\gramvanity.exe --mode tg-wallet --suffix "[a-z_]HELLO"
 
 # пять адресов для одного шаблона
-./gramvanity --mode bip39-12 --suffix '[a-z_]HELLO' --count 5
+.\\gramvanity.exe --mode tg-wallet --suffix "[a-z_]HELLO" --count 5
 
 # ограниченный диапазон: три миллиона кандидатов, начиная с индекса 1 000 000 000
-./gramvanity --mode bip39-12 --suffix '[a-z_]HELLO' --start-offset 1000000000 --tries 3000000
+.\\gramvanity.exe --mode tg-wallet --suffix "[a-z_]HELLO" --start-offset 1000000000 --tries 3000000
 
 # продолжить позже (stop-файл печатает эту точную команду)
-./gramvanity --resume ../results/job-20261028-101500/job.checkpoint
+.\\gramvanity.exe --resume ../results/job-20261028-101500/job.checkpoint
 
 # после хита счётчик по умолчанию исчерпан: запросить ещё один адрес и расширить диапазон
-./gramvanity --resume job.checkpoint --count 2 --tries 2000000
+.\\gramvanity.exe --resume job.checkpoint --count 2 --tries 2000000
 
 # восстановить хит, не имея фразы в файле
-./gramvanity --reveal job.checkpoint 123456
-./gramvanity --mode bip39-12 --derive <64-hex search key> 123456
+.\\gramvanity.exe --reveal job.checkpoint 123456
+.\\gramvanity.exe --mode tg-wallet --derive <64-hex search key> 123456
 
 # посмотреть checkpoint (секретный ключ не печатается)
-./gramvanity --checkpoint-info job.checkpoint
+.\\gramvanity.exe --checkpoint-info job.checkpoint
 ```
 
 `--random` отключает это: каждый кандидат — свежая случайность ОС, ключа поиска нет, и ничего
@@ -539,8 +541,8 @@ Checkpoint — обычный UTF-8-текст ("gramvanity-checkpoint" v1): п�
 
 ```sh
 # поднять count у t1 руками, затем легализовать правку и продолжить
-./gramvanity --checkpoint-fix ../results/job-20261028-101500/job.checkpoint
-./gramvanity --resume ../results/job-20261028-101500/job.checkpoint
+.\\gramvanity.exe --checkpoint-fix ../results/job-20261028-101500/job.checkpoint
+.\\gramvanity.exe --resume ../results/job-20261028-101500/job.checkpoint
 ```
 
 Не редактируйте строку `key`: ключ поиска — то, что делает каждый индекс воспроизводимым, и
@@ -554,10 +556,10 @@ Checkpoint — обычный UTF-8-текст ("gramvanity-checkpoint" v1): п�
 
 ```sh
 # склеить две папки заданий в новую папку задания (по умолчанию: results/job-<UTC-метка>)
-./gramvanity --checkpoint-merge --in ../results/job-20261101-090000 --in ../results/job-20261104-174407
+.\\gramvanity.exe --checkpoint-merge --in ../results/job-20261101-090000 --in ../results/job-20261104-174407
 
 # или указать входы и выходную папку явно
-./gramvanity --checkpoint-merge --in ../results/job-A/job.checkpoint --in ../results/job-B/job.checkpoint --out ../results/merged
+.\\gramvanity.exe --checkpoint-merge --in ../results/job-A/job.checkpoint --in ../results/job-B/job.checkpoint --out ../results/merged
 ```
 
 `--in` принимает файл checkpoint или папку задания (его `job.checkpoint`); повторите его для

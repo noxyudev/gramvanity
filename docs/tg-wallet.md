@@ -5,8 +5,9 @@
 This guide explains how a `tg-wallet` hit works, what the 24 words mean, how to choose the suffix,
 how to get the wallet on chain, and how to import it into Telegram Wallet.
 
-Commands below run from the `opencl/` directory after `make`; the verifier/activator is
-`../verify-go/w5addr` (`..\verify-go\w5addr.exe` on Windows), and the default job folder is
+Commands below run from the `opencl/` directory after `make`; they use the Windows-neutral
+`.\\gramvanity.exe` / `..\\verify-go\\w5addr.exe` form, which works unchanged in MSYS2, CMD and
+PowerShell (on Linux/macOS use `./gramvanity` / `../verify-go/w5addr`). The default job folder is
 `../results/job-<UTC timestamp>/`.
 
 `tg-wallet` is the default `--mode`: a search started without `--mode` looks for a Telegram Wallet
@@ -65,9 +66,9 @@ into ranges). The signing half of a hit is derived from the same secret search k
 separate HMAC domain (`DETSIGN`), so the *exact* 24 words are reproducible later:
 
 ```sh
-./gramvanity --mode tg-wallet --suffix 'HELLO' --start-offset 0 --tries 100000000 --out ../results/tg-hello
-./gramvanity --reveal ../results/tg-hello/job.checkpoint 1234567   # 24 words, both keys, address
-./gramvanity --mode tg-wallet --derive <key> 1234567         # same, from the key printed in the hit file
+.\\gramvanity.exe --mode tg-wallet --suffix "HELLO" --start-offset 0 --tries 100000000 --out ../results/tg-hello
+.\\gramvanity.exe --reveal ../results/tg-hello/job.checkpoint 1234567   # 24 words, both keys, address
+.\\gramvanity.exe --mode tg-wallet --derive <key> 1234567         # same, from the key printed in the hit file
 ```
 
 A new job always gets a new random search key, so two identical commands started separately search
@@ -139,15 +140,15 @@ message:
 
 ```sh
 # fund the address first: 0.05-0.1 TON is comfortable, 0.02 TON is the minimum the tool accepts
-../verify-go/w5addr activate --phrase "w1 … w24" --check    # address, on-chain state, balance
-../verify-go/w5addr activate --phrase "w1 … w24" --send     # deploy + rotate in one message
-../verify-go/w5addr activate --hit ../results/tg-testnet/hit-t1-….txt --send # --random hit file: phrase inside
+..\\verify-go\\w5addr.exe activate --phrase "w1 … w24" --check    # address, on-chain state, balance
+..\\verify-go\\w5addr.exe activate --phrase "w1 … w24" --send     # deploy + rotate in one message
+..\\verify-go\\w5addr.exe activate --hit ../results/tg-testnet/hit-t1-….txt --send # --random hit file: phrase inside
 ```
 
 Default hit files do not contain the phrase; pipe it from `--reveal` instead:
-`./gramvanity --reveal ../results/tg-main/job.checkpoint <index> | ../verify-go/w5addr activate --phrase - --send`.
+`.\\gramvanity.exe --reveal ../results/tg-main/job.checkpoint <index> | ..\\verify-go\\w5addr.exe activate --phrase - --send`.
 
-On Windows use `..\verify-go\w5addr.exe`. `--phrase -` reads the phrase from stdin, which is handy
+On Linux/macOS use `../verify-go/w5addr`. `--phrase -` reads the phrase from stdin, which is handy
 for piping `--reveal` output without printing the words.
 
 After `--send`, wait a few seconds and run `--check` again: it should report the contract as
@@ -209,19 +210,19 @@ program — Telegram Wallet can replace the phrase of an existing wallet itself:
 
 ```sh
 # 1. testnet experiment (free, fast, one-off: --random keeps the phrase in the hit file)
-./gramvanity --mode tg-wallet --net testnet --suffix ZQ --random --out ../results/tg-testnet
-../verify-go/w5addr activate --hit ../results/tg-testnet/hit-t1-*.txt --net testnet --check
+.\\gramvanity.exe --mode tg-wallet --net testnet --suffix ZQ --random --out ../results/tg-testnet
+..\\verify-go\\w5addr.exe activate --hit "../results/tg-testnet/hit-t1-<id>.txt" --net testnet --check
 # fund it from https://t.me/testgiver_ton_bot, then:
-../verify-go/w5addr activate --hit ../results/tg-testnet/hit-t1-*.txt --net testnet --send
+..\\verify-go\\w5addr.exe activate --hit "../results/tg-testnet/hit-t1-<id>.txt" --net testnet --send
 
 # 2. mainnet, a large bounded range (deterministic and resumable by default)
-./gramvanity --mode tg-wallet --suffix '[a-z_]HELLO' --start-offset 0 \
+.\\gramvanity.exe --mode tg-wallet --suffix "[a-z_]HELLO" --start-offset 0 \
              --tries 100000000000 --out ../results/tg-main
 #    (Ctrl+C any time; the checkpoint is ../results/tg-main/job.checkpoint; continue later with:)
-./gramvanity --resume ../results/tg-main/job.checkpoint
+.\\gramvanity.exe --resume ../results/tg-main/job.checkpoint
 
 # 3. after a hit: recover the 24 words, activate, import
-./gramvanity --reveal ../results/tg-main/job.checkpoint <index>  # or the --derive command from the hit file
-../verify-go/w5addr activate --phrase "<24 words>" --check
-../verify-go/w5addr activate --phrase "<24 words>" --send
+.\\gramvanity.exe --reveal ../results/tg-main/job.checkpoint <index>  # or the --derive command from the hit file
+..\\verify-go\\w5addr.exe activate --phrase "<24 words>" --check
+..\\verify-go\\w5addr.exe activate --phrase "<24 words>" --send
 ```

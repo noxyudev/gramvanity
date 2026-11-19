@@ -65,7 +65,8 @@ opened normally). Pass the Windows libraries explicitly:
 make LIBS="-lOpenCL -lbcrypt -static-libgcc"
 ```
 
-From then on, `gramvanity.exe` runs from the MSYS2 shell or a regular command prompt.
+From then on, `gramvanity.exe` runs from MSYS2, CMD or PowerShell; the examples below use the
+`.\\gramvanity.exe` form, which works unchanged in all three.
 
 ### Make targets
 
@@ -83,16 +84,18 @@ result — the build never reads the source files directly.
 ### Smoke check
 
 ```sh
-./gramvanity --list-devices                              # GPUs visible to OpenCL
-./gramvanity --mode bip39-12 --bench 60                  # one-minute speed test, finds nothing
+.\\gramvanity.exe --list-devices                              # GPUs visible to OpenCL
+.\\gramvanity.exe --mode tg-wallet --bench 60                  # one-minute speed test, finds nothing
 ```
+
+On Linux/macOS use `./gramvanity` in the same commands.
 
 For real searches — patterns, targets, resume — follow the [main README](../README.md).
 
 ## Tests
 
 ```sh
-./gramvanity --selftest-det   # deterministic search and target unit tests, no GPU needed
+.\\gramvanity.exe --selftest-det   # deterministic search and target unit tests, no GPU needed
 sh tests/test_det.sh          # end-to-end tests on the GPU: stop/resume/crash/hit/replay/targets
 ```
 

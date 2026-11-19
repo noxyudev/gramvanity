@@ -128,7 +128,7 @@ gramvanity/
     └── w5addr.exe
 ```
 
-The search looks for the verifier relative to `opencl/` (`../verify-go/w5addr[.exe]`) and writes
+The search looks for the verifier relative to `opencl/` (`..\\verify-go\\w5addr[.exe]`) and writes
 results to `../results/`. Do not move the binaries separately or change this layout. Binaries are
 ignored by Git — do not commit them.
 
@@ -168,7 +168,7 @@ secret search key.
 Minimum after changes to C/OpenCL:
 
 ```bash
-./opencl/gramvanity.exe --selftest-det
+.\\opencl\\gramvanity.exe --selftest-det
 ```
 
 `--selftest-det` needs no GPU (~70 deterministic assertions), but it does not replace a check of the
@@ -190,8 +190,8 @@ python3 tools/check_i18n.py
 GPU checks, when the task touches them:
 
 ```bash
-./opencl/gramvanity.exe --list-devices
-./opencl/gramvanity.exe --mode bip39-12 --bench 60
+.\\opencl\\gramvanity.exe --list-devices
+.\\opencl\\gramvanity.exe --mode tg-wallet --bench 60
 sh opencl/tests/test_det.sh
 ```
 

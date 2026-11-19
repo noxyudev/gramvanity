@@ -5,8 +5,9 @@
 Это руководство объясняет, как работает хит в режиме `tg-wallet`, что означают 24 слова, как
 выбрать окончание, как вывести кошелёк на цепь и как импортировать его в Telegram Wallet.
 
-Команды ниже выполняются из папки `opencl/` после `make`; верификатор/активатор —
-`../verify-go/w5addr` (`..\verify-go\w5addr.exe` на Windows), а папка задания по умолчанию —
+Команды ниже выполняются из папки `opencl/` после `make`; используется форма
+`.\\gramvanity.exe` / `..\\verify-go\\w5addr.exe`, которая одинаково работает в MSYS2, CMD и
+PowerShell (в Linux/macOS — `./gramvanity` / `../verify-go/w5addr`). Папка задания по умолчанию —
 `../results/job-<UTC timestamp>/`.
 
 `tg-wallet` — это `--mode` по умолчанию: поиск, запущенный без `--mode`, ищет адрес Telegram
@@ -69,9 +70,9 @@ data = хранилище WalletTg, revision 00:
 отдельный домен HMAC (`DETSIGN`), поэтому *точные* 24 слова воспроизводимы позже:
 
 ```sh
-./gramvanity --mode tg-wallet --suffix 'HELLO' --start-offset 0 --tries 100000000 --out ../results/tg-hello
-./gramvanity --reveal ../results/tg-hello/job.checkpoint 1234567   # 24 слова, оба ключа, адрес
-./gramvanity --mode tg-wallet --derive <key> 1234567         # то же, по ключу из hit-файла
+.\\gramvanity.exe --mode tg-wallet --suffix "HELLO" --start-offset 0 --tries 100000000 --out ../results/tg-hello
+.\\gramvanity.exe --reveal ../results/tg-hello/job.checkpoint 1234567   # 24 слова, оба ключа, адрес
+.\\gramvanity.exe --mode tg-wallet --derive <key> 1234567         # то же, по ключу из hit-файла
 ```
 
 Новое задание всегда получает новый случайный ключ поиска, поэтому две одинаковые команды,
@@ -148,15 +149,15 @@ data = хранилище WalletTg, revision 00:
 
 ```sh
 # сначала пополните адрес: 0.05-0.1 TON комфортно, 0.02 TON — минимум, который принимает инструмент
-../verify-go/w5addr activate --phrase "w1 … w24" --check    # адрес, состояние на цепи, баланс
-../verify-go/w5addr activate --phrase "w1 … w24" --send     # deploy + rotate одним сообщением
-../verify-go/w5addr activate --hit ../results/tg-testnet/hit-t1-….txt --send # hit-файл --random: фраза внутри
+..\\verify-go\\w5addr.exe activate --phrase "w1 … w24" --check    # адрес, состояние на цепи, баланс
+..\\verify-go\\w5addr.exe activate --phrase "w1 … w24" --send     # deploy + rotate одним сообщением
+..\\verify-go\\w5addr.exe activate --hit ../results/tg-testnet/hit-t1-….txt --send # hit-файл --random: фраза внутри
 ```
 
 Обычные hit-файлы не содержат фразу; передайте её из `--reveal`:
-`./gramvanity --reveal ../results/tg-main/job.checkpoint <index> | ../verify-go/w5addr activate --phrase - --send`.
+`.\\gramvanity.exe --reveal ../results/tg-main/job.checkpoint <index> | ..\\verify-go\\w5addr.exe activate --phrase - --send`.
 
-На Windows используйте `..\verify-go\w5addr.exe`. `--phrase -` читает фразу из stdin, что удобно
+В Linux/macOS используйте `../verify-go/w5addr`. `--phrase -` читает фразу из stdin, что удобно
 для передачи вывода `--reveal` без печати слов.
 
 После `--send` подождите несколько секунд и снова запустите `--check`: он должен сообщить, что
@@ -218,19 +219,19 @@ Telegram Wallet умеет заменять фразу существующег�
 
 ```sh
 # 1. эксперимент в testnet (бесплатно, быстро, одноразово: --random хранит фразу в hit-файле)
-./gramvanity --mode tg-wallet --net testnet --suffix ZQ --random --out ../results/tg-testnet
-../verify-go/w5addr activate --hit ../results/tg-testnet/hit-t1-*.txt --net testnet --check
+.\\gramvanity.exe --mode tg-wallet --net testnet --suffix ZQ --random --out ../results/tg-testnet
+..\\verify-go\\w5addr.exe activate --hit "../results/tg-testnet/hit-t1-<id>.txt" --net testnet --check
 # пополните с https://t.me/testgiver_ton_bot, затем:
-../verify-go/w5addr activate --hit ../results/tg-testnet/hit-t1-*.txt --net testnet --send
+..\\verify-go\\w5addr.exe activate --hit "../results/tg-testnet/hit-t1-<id>.txt" --net testnet --send
 
 # 2. mainnet, большой ограниченный диапазон (детерминированно и возобновляемо по умолчанию)
-./gramvanity --mode tg-wallet --suffix '[a-z_]HELLO' --start-offset 0 \
+.\\gramvanity.exe --mode tg-wallet --suffix "[a-z_]HELLO" --start-offset 0 \
              --tries 100000000000 --out ../results/tg-main
 #    (Ctrl+C в любой момент; checkpoint — ../results/tg-main/job.checkpoint; продолжить позже:)
-./gramvanity --resume ../results/tg-main/job.checkpoint
+.\\gramvanity.exe --resume ../results/tg-main/job.checkpoint
 
 # 3. после хита: восстановить 24 слова, активировать, импортировать
-./gramvanity --reveal ../results/tg-main/job.checkpoint <index>  # или команда --derive из hit-файла
-../verify-go/w5addr activate --phrase "<24 words>" --check
-../verify-go/w5addr activate --phrase "<24 words>" --send
+.\\gramvanity.exe --reveal ../results/tg-main/job.checkpoint <index>  # или команда --derive из hit-файла
+..\\verify-go\\w5addr.exe activate --phrase "<24 words>" --check
+..\\verify-go\\w5addr.exe activate --phrase "<24 words>" --send
 ```

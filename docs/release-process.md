@@ -76,14 +76,15 @@ commit (`tools/check_i18n.py` checks the pair; CI runs it).
    `opencl/sha512_consts.h` or `opencl/english.txt` changed:
    `make -C opencl embed`, review the `opencl/embedded.h` diff and
    include it in the change.
-4. Local verification (`AGENTS.md` → "Verification"):
-   - `./opencl/gramvanity.exe --selftest-det` — after any C/OpenCL
+4. Local verification (`AGENTS.md` → "Verification"; on Linux/macOS use
+   `./opencl/gramvanity` instead of `.\\opencl\\gramvanity.exe`):
+   - `.\\opencl\\gramvanity.exe --selftest-det` — after any C/OpenCL
      change;
    - `go vet ./verify-go` and `go test -count=1 ./verify-go` — after any
      verifier change;
    - `bash ./build-windows.sh --check` — the full Windows build gate;
-   - if the GPU path changed: `./opencl/gramvanity.exe --list-devices`,
-     a short `--mode bip39-12 --bench 60` run and
+   - if the GPU path changed: `.\\opencl\\gramvanity.exe --list-devices`,
+     a short `--mode tg-wallet --bench 60` run and
      `sh opencl/tests/test_det.sh` (needs a GPU; runs locally only — CI
      cannot run it).
 5. Both changelogs carry the release's changes under `[Unreleased]`.
