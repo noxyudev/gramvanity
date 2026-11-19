@@ -113,10 +113,16 @@ try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::S
 
 # ---------------------------------------------------------------- checks
 
-# EN: 1. OS and architecture: Windows x86_64. RuntimeInformation works in every shell, including
-# RU: 1. ОС и архитектура: Windows x86_64. RuntimeInformation работает в любой оболочке, в том
-# EN:    ones (like MSYS2) that do not set OS=Windows_NT or PROCESSOR_ARCHITECTURE.
-# RU:    числе MSYS2, которая не задаёт OS=Windows_NT и PROCESSOR_ARCHITECTURE.
+# EN: 1. OS and architecture: Windows x86_64. RuntimeInformation is the primary source, but it is
+# EN:    not available in every Windows PowerShell/.NET combination, and PowerShell returns $null
+# EN:    for a missing static property without throwing. The fallback therefore runs on an empty
+# EN:    value too, not only in catch; PROCESSOR_ARCHITECTURE (and PROCESSOR_ARCHITEW6432 for a
+# EN:    32-bit PowerShell on 64-bit Windows) covers those shells, including MSYS2.
+# RU: 1. ОС и архитектура: Windows x86_64. Основной источник - RuntimeInformation, но он есть не
+# RU:    во всех сочетаниях Windows PowerShell/.NET, а для отсутствующего статического свойства
+# RU:    PowerShell возвращает $null без исключения. Поэтому резервная проверка срабатывает и на
+# RU:    пустом значении, а не только в catch; PROCESSOR_ARCHITECTURE (и PROCESSOR_ARCHITEW6432
+# RU:    для 32-битного PowerShell на 64-битной Windows) покрывает такие оболочки, включая MSYS2.
 $IsWindows = $false
 try {
     $IsWindows = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)
@@ -130,12 +136,17 @@ if (-not $IsWindows) {
 $OsArch = ''
 try {
     $OsArch = [string][System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
-} catch {
-    if ($env:PROCESSOR_ARCHITECTURE -eq 'AMD64' -or $env:PROCESSOR_ARCHITEW6432 -eq 'AMD64') { $OsArch = 'X64' }
+} catch {}
+if (-not $OsArch) {
+    if ($env:PROCESSOR_ARCHITEW6432 -eq 'ARM64' -or $env:PROCESSOR_ARCHITECTURE -eq 'ARM64') {
+        $OsArch = 'Arm64'
+    } elseif ($env:PROCESSOR_ARCHITECTURE -eq 'AMD64' -or $env:PROCESSOR_ARCHITEW6432 -eq 'AMD64') {
+        $OsArch = 'X64'
+    }
 }
 if ($OsArch -ne 'X64') {
-    fail "Windows x86_64 is required; this machine reports '$OsArch'." `
-         "Нужна Windows x86_64; на этой машине архитектура '$OsArch'."
+    fail "Windows x86_64 is required; this machine reports '$OsArch' (PROCESSOR_ARCHITECTURE='$env:PROCESSOR_ARCHITECTURE', PROCESSOR_ARCHITEW6432='$env:PROCESSOR_ARCHITEW6432')." `
+         "Нужна Windows x86_64; на этой машине архитектура '$OsArch' (PROCESSOR_ARCHITECTURE='$env:PROCESSOR_ARCHITECTURE', PROCESSOR_ARCHITEW6432='$env:PROCESSOR_ARCHITEW6432')."
 }
 
 # ---------------------------------------------------------------- install folder

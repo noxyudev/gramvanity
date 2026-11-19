@@ -6,6 +6,15 @@
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/); версии — по
 [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Исправлено
+- Установщики для Windows больше не падают с `Windows x86_64 is required; this machine reports ''`,
+  когда .NET возвращает пустой `RuntimeInformation.OSArchitecture`. Проверка архитектуры теперь
+  переходит на `PROCESSOR_ARCHITECTURE` / `PROCESSOR_ARCHITEW6432`, если значение .NET пустое, а
+  текст ошибки показывает обе переменные. Та же резервная проверка добавлена в
+  `tools/setup-dev.ps1`; он больше не падает, когда инструмент ничего не печатает в stdout.
+
 ## [1.2.1] - 2026-11-15
 
 Патч-релиз: установка в одну команду работает, оба установщика запрашивают папку установки, и
@@ -237,6 +246,7 @@
 - CI на GitHub Actions (Linux + Windows) и релизы по тегу с готовыми архивами.
 - Двуязычная документация (английский/русский) и локализация `--lang en|ru`.
 
+[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.2.1...HEAD
 [1.2.1]: https://github.com/noxyudev/gramvanity/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/noxyudev/gramvanity/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/noxyudev/gramvanity/compare/v1.1.2...v1.1.3

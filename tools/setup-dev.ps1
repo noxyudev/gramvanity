@@ -82,6 +82,10 @@ function Run-Tool([string]$ExePath, [string[]]$ExeArgs, [string]$WorkingDir = $n
         $err = ''
         try { $out = Get-Content $outF -Raw -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
         try { $err = Get-Content $errF -Raw -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+        # EN: Get-Content -Raw returns $null for an empty file; keep Out/Err strings for .Trim().
+        # RU: Get-Content -Raw возвращает $null для пустого файла; Out/Err должны оставаться строками для .Trim().
+        if ($null -eq $out) { $out = '' }
+        if ($null -eq $err) { $err = '' }
         if ($null -eq $code) { $code = -1 }
         [pscustomobject]@{ ExitCode = $code; Out = $out; Err = $err }
     } finally {
@@ -107,8 +111,13 @@ function Add-ManifestEntry([string]$Line) {
 
 # ---------------------------------------------------------------- checks
 
-# EN: 1. OS and architecture, and that this really is a cloned repository checkout.
-# RU: 1. ОС и архитектура, а также что это действительно склонированный репозиторий.
+# EN: 1. OS and architecture, and that this really is a cloned repository checkout. RuntimeInformation
+# EN:    is the primary source, but PowerShell returns $null for a missing static property without
+# EN:    throwing, so the environment fallback must also run when the value is empty, not only in catch.
+# RU: 1. ОС и архитектура, а также что это действительно склонированный репозиторий. Основной
+# RU:    источник - RuntimeInformation, но для отсутствующего статического свойства PowerShell
+# RU:    возвращает $null без исключения, поэтому резервная проверка окружения должна срабатывать
+# RU:    и на пустом значении, а не только в catch.
 $IsWindows = $false
 try {
     $IsWindows = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)
@@ -121,9 +130,16 @@ if (-not $IsWindows) {
 }
 $OsArch = ''
 try { $OsArch = [string][System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture } catch {}
+if (-not $OsArch) {
+    if ($env:PROCESSOR_ARCHITEW6432 -eq 'ARM64' -or $env:PROCESSOR_ARCHITECTURE -eq 'ARM64') {
+        $OsArch = 'Arm64'
+    } elseif ($env:PROCESSOR_ARCHITECTURE -eq 'AMD64' -or $env:PROCESSOR_ARCHITEW6432 -eq 'AMD64') {
+        $OsArch = 'X64'
+    }
+}
 if ($OsArch -ne 'X64') {
-    fail "Windows x86_64 is required; this machine reports '$OsArch'." `
-         "Нужна Windows x86_64; на этой машине архитектура '$OsArch'."
+    fail "Windows x86_64 is required; this machine reports '$OsArch' (PROCESSOR_ARCHITECTURE='$env:PROCESSOR_ARCHITECTURE', PROCESSOR_ARCHITEW6432='$env:PROCESSOR_ARCHITEW6432')." `
+         "Нужна Windows x86_64; на этой машине архитектура '$OsArch' (PROCESSOR_ARCHITECTURE='$env:PROCESSOR_ARCHITECTURE', PROCESSOR_ARCHITEW6432='$env:PROCESSOR_ARCHITEW6432')."
 }
 if (-not (Test-Path (Join-Path $RepoRoot 'go.mod')) -or -not (Test-Path (Join-Path $RepoRoot 'build-windows.sh'))) {
     fail "This does not look like a gramvanity checkout (go.mod / build-windows.sh not found next to tools\). Clone the repository first; the setup never clones it for you." `

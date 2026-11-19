@@ -6,6 +6,15 @@ All notable changes to gramvanity are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- The Windows installers no longer fail with `Windows x86_64 is required; this machine reports ''`
+  when .NET returns an empty `RuntimeInformation.OSArchitecture`. The architecture check now falls
+  back to `PROCESSOR_ARCHITECTURE` / `PROCESSOR_ARCHITEW6432` whenever the .NET value is empty, and
+  the error names both variables. `tools/setup-dev.ps1` gets the same fallback and no longer
+  crashes when a tool prints nothing to stdout.
+
 ## [1.2.1] - 2026-11-15
 
 Patch release: the install one-liners work, both installers ask for the install folder, and the
@@ -233,6 +242,7 @@ wallet derives on import. The global changes relative to the original project:
 - CI on GitHub Actions (Linux + Windows) and tag-driven releases with ready archives.
 - Bilingual documentation (English/Russian) and runtime localization `--lang en|ru`.
 
+[Unreleased]: https://github.com/noxyudev/gramvanity/compare/v1.2.1...HEAD
 [1.2.1]: https://github.com/noxyudev/gramvanity/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/noxyudev/gramvanity/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/noxyudev/gramvanity/compare/v1.1.2...v1.1.3
